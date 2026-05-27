@@ -1,0 +1,41 @@
+[
+  {
+    "id": "prop1",
+    "projectId": "p1",
+    "freelancerId": "f1",
+    "freelancerName": "Priya Sharma",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
+    "coverLetter": "I have built 3 similar recommendation engines for e-commerce platforms. My approach uses collaborative filtering with deep learning embeddings.",
+    "price": 14500,
+    "timeline": "7 weeks",
+    "status": "pending",
+    "submittedAt": "2026-05-21T10:30:00Z",
+    "matchScore": 96
+  },
+  {
+    "id": "prop2",
+    "projectId": "p1",
+    "freelancerId": "f2",
+    "freelancerName": "Marcus Chen",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus",
+    "coverLetter": "Specialized in ML pipelines at scale. I will deliver a production-ready system with monitoring and drift detection.",
+    "price": 16000,
+    "timeline": "8 weeks",
+    "status": "pending",
+    "submittedAt": "2026-05-21T14:15:00Z",
+    "matchScore": 91
+  },
+  {
+    "id": "prop3",
+    "projectId": "p1",
+    "freelancerId": "f5",
+    "freelancerName": "Aisha Khan",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Aisha",
+    "coverLetter": "Strong DevOps background ensures your ML models deploy reliably on AWS with auto-scaling.",
+    "price": 13800,
+    "timeline": "6 weeks",
+    "status": "pending",
+    "submittedAt": "2026-05-22T09:00:00Z",
+    "matchScore": 78
+  }
+]

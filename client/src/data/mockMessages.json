@@ -1,0 +1,32 @@
+{
+  "conversations": [
+    {
+      "id": "conv1",
+      "participant": { "id": "f1", "name": "Priya Sharma", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya", "online": true },
+      "lastMessage": "I've uploaded the latest prototype for review.",
+      "lastMessageAt": "2026-05-27T08:30:00Z",
+      "unread": 2
+    },
+    {
+      "id": "conv2",
+      "participant": { "id": "c1", "name": "TechVentures Inc.", "avatar": "https://api.dicebear.com/7.x/initials/svg?seed=TV", "online": false },
+      "lastMessage": "Can we schedule a call for milestone 2?",
+      "lastMessageAt": "2026-05-26T16:45:00Z",
+      "unread": 0
+    },
+    {
+      "id": "conv3",
+      "participant": { "id": "f3", "name": "Elena Rodriguez", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Elena", "online": true },
+      "lastMessage": "Design system tokens are ready in Figma.",
+      "lastMessageAt": "2026-05-25T11:20:00Z",
+      "unread": 1
+    }
+  ],
+  "messages": {
+    "conv1": [
+      { "id": "m1", "senderId": "f1", "content": "Hi! I've started on the recommendation engine architecture.", "timestamp": "2026-05-26T10:00:00Z" },
+      { "id": "m2", "senderId": "me", "content": "Great! Please share the initial wireframes when ready.", "timestamp": "2026-05-26T10:15:00Z" },
+      { "id": "m3", "senderId": "f1", "content": "I've uploaded the latest prototype for review.", "timestamp": "2026-05-27T08:30:00Z" }
+    ]
+  }
+}

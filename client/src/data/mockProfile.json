@@ -1,0 +1,28 @@
+{
+  "id": "f1",
+  "name": "Priya Sharma",
+  "title": "Full-Stack AI Engineer",
+  "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
+  "coverPhoto": "https://images.unsplash.com/photo-1557683316-973673baf926?w=1200&h=300&fit=crop",
+  "bio": "Passionate AI engineer with 8+ years building intelligent systems for global enterprises. Specialized in recommendation engines, NLP, and scalable cloud architectures.",
+  "location": "Bangalore, India",
+  "hourlyRate": 85,
+  "rating": 4.9,
+  "totalReviews": 127,
+  "skills": ["React", "Node.js", "Python", "TensorFlow", "AWS", "MongoDB", "Socket.IO", "NLP"],
+  "portfolio": [
+    { "id": "port1", "title": "E-Commerce AI Engine", "image": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=250&fit=crop", "url": "#" },
+    { "id": "port2", "title": "Healthcare Chatbot", "image": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&h=250&fit=crop", "url": "#" },
+    { "id": "port3", "title": "FinTech Dashboard", "image": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=250&fit=crop", "url": "#" }
+  ],
+  "reviews": [
+    { "id": "r1", "client": "TechVentures Inc.", "rating": 5, "comment": "Exceptional work on our ML pipeline. Delivered ahead of schedule.", "date": "2026-04-15" },
+    { "id": "r2", "client": "HealthAI Corp", "rating": 5, "comment": "Outstanding communication and technical expertise.", "date": "2026-03-02" },
+    { "id": "r3", "client": "DataFlow Ltd", "rating": 4, "comment": "Great developer, minor delays on final milestone.", "date": "2026-01-20" }
+  ],
+  "availability": {
+    "available": true,
+    "hoursPerWeek": 40,
+    "timezone": "IST (UTC+5:30)"
+  }
+}

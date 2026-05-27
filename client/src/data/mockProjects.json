@@ -1,0 +1,58 @@
+[
+  {
+    "id": "p1",
+    "title": "AI-Powered E-Commerce Recommendation Engine",
+    "description": "Build a machine learning recommendation system for our global marketplace with real-time personalization and A/B testing integration.",
+    "budget": 15000,
+    "budgetType": "fixed",
+    "skills": ["Python", "TensorFlow", "React", "AWS"],
+    "status": "open",
+    "clientName": "TechVentures Inc.",
+    "postedAt": "2026-05-20",
+    "proposalsCount": 12,
+    "duration": "8 weeks",
+    "category": "AI/ML"
+  },
+  {
+    "id": "p2",
+    "title": "MERN Stack Freelance Platform MVP",
+    "description": "Develop a full-featured freelance marketplace with JWT auth, real-time bidding, and escrow payments.",
+    "budget": 25000,
+    "budgetType": "fixed",
+    "skills": ["React", "Node.js", "MongoDB", "Socket.IO"],
+    "status": "open",
+    "clientName": "StartupHub Global",
+    "postedAt": "2026-05-22",
+    "proposalsCount": 8,
+    "duration": "12 weeks",
+    "category": "Web Development"
+  },
+  {
+    "id": "p3",
+    "title": "Mobile App UI Redesign — Fintech",
+    "description": "Complete UI/UX overhaul for iOS and Android banking app with dark mode and accessibility compliance.",
+    "budget": 8000,
+    "budgetType": "fixed",
+    "skills": ["Figma", "React Native", "UI/UX"],
+    "status": "in_progress",
+    "clientName": "FinEdge Solutions",
+    "postedAt": "2026-05-15",
+    "proposalsCount": 24,
+    "duration": "6 weeks",
+    "category": "Design"
+  },
+  {
+    "id": "p4",
+    "title": "Smart Contract Audit — DeFi Protocol",
+    "description": "Security audit and optimization of Ethereum smart contracts for a decentralized lending platform.",
+    "budget": 20000,
+    "budgetType": "fixed",
+    "skills": ["Solidity", "Security", "Web3"],
+    "status": "open",
+    "clientName": "DeFi Labs",
+    "postedAt": "2026-05-24",
+    "proposalsCount": 5,
+    "duration": "4 weeks",
+    "category": "Blockchain"
+  }
+]

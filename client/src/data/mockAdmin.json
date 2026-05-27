@@ -1,0 +1,29 @@
+{
+  "stats": {
+    "totalUsers": 12450,
+    "activeProjects": 892,
+    "totalRevenue": 2847500,
+    "fraudAlerts": 7,
+    "userGrowth": 12.5,
+    "projectGrowth": 8.3,
+    "revenueGrowth": 15.2
+  },
+  "fraudAlerts": [
+    { "id": "fa1", "user": "suspicious_user_42", "type": "Multiple failed payments", "severity": "high", "timestamp": "2026-05-27T07:00:00Z", "status": "open" },
+    { "id": "fa2", "user": "rapid_bid_bot", "type": "Abnormal bid frequency", "severity": "critical", "timestamp": "2026-05-27T06:30:00Z", "status": "investigating" },
+    { "id": "fa3", "user": "fake_profile_99", "type": "Identity mismatch detected", "severity": "medium", "timestamp": "2026-05-26T22:15:00Z", "status": "open" },
+    { "id": "fa4", "user": "chargeback_user", "type": "Chargeback pattern", "severity": "high", "timestamp": "2026-05-26T18:00:00Z", "status": "resolved" }
+  ],
+  "users": [
+    { "id": "u1", "name": "Priya Sharma", "email": "priya@email.com", "role": "freelancer", "status": "active", "joined": "2025-01-15" },
+    { "id": "u2", "name": "TechVentures Inc.", "email": "contact@techventures.com", "role": "client", "status": "active", "joined": "2024-08-20" },
+    { "id": "u3", "name": "suspicious_user_42", "email": "unknown@test.com", "role": "freelancer", "status": "flagged", "joined": "2026-05-25" },
+    { "id": "u4", "name": "Marcus Chen", "email": "marcus@email.com", "role": "freelancer", "status": "active", "joined": "2024-11-03" }
+  ],
+  "platformHealth": {
+    "apiLatency": 45,
+    "uptime": 99.97,
+    "errorRate": 0.03,
+    "activeConnections": 1243
+  }
+}

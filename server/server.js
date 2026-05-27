@@ -1,0 +1,64 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import http from 'http';
+import { Server } from 'socket.io';
+import { connectDB } from './config/db.js';
+import { initSocketHandlers } from './services/socketService.js';
+
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import projectRoutes from './routes/projectRoutes.js';
+import proposalRoutes from './routes/proposalRoutes.js';
+import contractRoutes from './routes/contractRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import { getPlatformStats } from './controllers/statsController.js';
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+  },
+});
+
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+// increase body parser limits to handle large uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+app.get('/api/health', (_, res) => res.json({ status: 'ok', service: 'FreelannceAI API' }));
+app.get('/api/stats', getPlatformStats);
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/proposals', proposalRoutes);
+app.use('/api/contracts', contractRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/admin', adminRoutes);
+
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ message: err.message || 'Internal server error' });
+});
+
+initSocketHandlers(io);
+app.set('io', io);
+
+const PORT = process.env.PORT || 5000;
+
+connectDB()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to connect to MongoDB:', err.message);
+    process.exit(1);
+  });

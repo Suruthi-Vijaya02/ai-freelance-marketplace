@@ -1,0 +1,38 @@
+[
+  {
+    "id": "tx1",
+    "projectTitle": "AI E-Commerce Engine",
+    "milestone": "Milestone 1 — Architecture & Setup",
+    "amount": 3750,
+    "status": "released",
+    "date": "2026-05-10",
+    "method": "Stripe"
+  },
+  {
+    "id": "tx2",
+    "projectTitle": "AI E-Commerce Engine",
+    "milestone": "Milestone 2 — Core ML Pipeline",
+    "amount": 3750,
+    "status": "escrow",
+    "date": "2026-05-20",
+    "method": "Stripe"
+  },
+  {
+    "id": "tx3",
+    "projectTitle": "AI E-Commerce Engine",
+    "milestone": "Milestone 3 — Integration & Testing",
+    "amount": 3750,
+    "status": "pending",
+    "date": null,
+    "method": "Stripe"
+  },
+  {
+    "id": "tx4",
+    "projectTitle": "AI E-Commerce Engine",
+    "milestone": "Milestone 4 — Deployment & Handoff",
+    "amount": 3750,
+    "status": "pending",
+    "date": null,
+    "method": "Stripe"
+  }
+]

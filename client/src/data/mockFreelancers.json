@@ -1,0 +1,67 @@
+[
+  {
+    "id": "f1",
+    "name": "Priya Sharma",
+    "title": "Full-Stack AI Engineer",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya",
+    "rating": 4.9,
+    "reviews": 127,
+    "hourlyRate": 85,
+    "skills": ["React", "Node.js", "TensorFlow", "Python"],
+    "matchScore": 96,
+    "location": "Bangalore, IN",
+    "completedProjects": 48
+  },
+  {
+    "id": "f2",
+    "name": "Marcus Chen",
+    "title": "ML & Data Science Specialist",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus",
+    "rating": 4.8,
+    "reviews": 93,
+    "hourlyRate": 120,
+    "skills": ["Python", "PyTorch", "NLP", "AWS"],
+    "matchScore": 91,
+    "location": "Singapore",
+    "completedProjects": 62
+  },
+  {
+    "id": "f3",
+    "name": "Elena Rodriguez",
+    "title": "UI/UX & Frontend Developer",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Elena",
+    "rating": 4.95,
+    "reviews": 156,
+    "hourlyRate": 75,
+    "skills": ["Figma", "React", "Tailwind", "Framer Motion"],
+    "matchScore": 88,
+    "location": "Barcelona, ES",
+    "completedProjects": 71
+  },
+  {
+    "id": "f4",
+    "name": "James Okonkwo",
+    "title": "Blockchain & Smart Contracts",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=James",
+    "rating": 4.7,
+    "reviews": 64,
+    "hourlyRate": 150,
+    "skills": ["Solidity", "Web3", "Ethereum", "Rust"],
+    "matchScore": 85,
+    "location": "Lagos, NG",
+    "completedProjects": 35
+  },
+  {
+    "id": "f5",
+    "name": "Aisha Khan",
+    "title": "DevOps & Cloud Architect",
+    "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=Aisha",
+    "rating": 4.85,
+    "reviews": 88,
+    "hourlyRate": 95,
+    "skills": ["Kubernetes", "Docker", "AWS", "CI/CD"],
+    "matchScore": 82,
+    "location": "Dubai, AE",
+    "completedProjects": 52
+  }
+]

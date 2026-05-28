@@ -171,13 +171,20 @@ export default function ProjectDetailPage() {
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-3">
         {isFreelancer && project.status === 'open' && (
-          <Button onClick={() => navigate(`/bidding/${id}`)}>
-            <Send className="w-4 h-4 mr-2" /> Submit Proposal
-          </Button>
+          <>
+            <Button onClick={() => navigate(`/projects/${id}/proposal`)}>
+              <Send className="w-4 h-4 mr-2" /> Submit Proposal
+            </Button>
+            {project.biddingEnabled && (
+              <Button variant="outline" onClick={() => navigate(`/bidding/${id}`)}>
+                Live Bidding
+              </Button>
+            )}
+          </>
         )}
 
         {isOwner && (
-          <Button variant="secondary" onClick={() => navigate(`/bidding/${id}`)}>
+          <Button variant="secondary" onClick={() => navigate(`/projects/${id}/proposals`)}>
             View Proposals
           </Button>
         )}

@@ -65,7 +65,10 @@ export default function AuthPage({ mode = 'login' }) {
       const from = location.state?.from?.pathname;
       navigate(redirect || from || redirectForRole(data.user.role));
     } catch (err) {
-      const msg = err?.message || 'Authentication failed';
+      const msg =
+        err?.message ||
+        err?.response?.data?.message ||
+        'Authentication failed';
       setError(msg);
       toast.error(msg);
     } finally {

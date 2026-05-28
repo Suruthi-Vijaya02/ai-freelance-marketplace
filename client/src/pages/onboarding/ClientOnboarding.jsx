@@ -30,9 +30,14 @@ export default function ClientOnboarding() {
     try {
       const payload = {
         title: form.companyName,
-        skills: form.interests,
         bio: form.description,
-        budgetPreference: form.budget,
+        clientProfile: {
+          companyName: form.companyName,
+          description: form.description,
+          industry: form.interests.join(', '),
+          budgetRange: form.budget,
+          companySize: form.businessType === 'company' ? 'Company' : 'Individual',
+        },
       };
       const { data } = await userService.updateProfile(payload);
       login(data, localStorage.getItem('svr_token'));

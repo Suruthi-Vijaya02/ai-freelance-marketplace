@@ -7,6 +7,8 @@ const proposalSchema = new mongoose.Schema(
     coverLetter: { type: String, required: true },
     price: { type: Number, required: true },
     timeline: { type: String, required: true },
+    estimatedHours: { type: Number },
+    attachments: [{ name: String, url: String }],
     status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
     matchScore: { type: Number, default: 0 },
   },

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Search, Filter, Briefcase, Clock, DollarSign, Users } from 'lucide-react';
-import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -13,12 +12,14 @@ import Skeleton from '../components/ui/Skeleton';
 import LoginModal from '../components/ui/LoginModal';
 import { useProtectedAction } from '../hooks/useProtectedAction';
 import useRole from '../hooks/useRole';
-import { projectService } from '../services/authService';
+import { projectService, proposalService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
 
 export default function ProjectsPage() {
   const { requireAuth, showLoginModal, closeLoginModal, isAuthenticated } = useProtectedAction();
   const { isClient, isFreelancer } = useRole();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') || (isFreelancer ? 'browse' : 'mine');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -31,11 +32,16 @@ export default function ProjectsPage() {
       if (isClient) {
         const res = await projectService.getMyProjects();
         data = res.data;
+      } else if (tab === 'hired') {
+        const res = await projectService.getHiredProjects();
+        data = res.data;
+      } else if (tab === 'applied') {
+        const res = await proposalService.getMyProposals();
+        data = (res.data || []).map((p) => p.project).filter(Boolean);
       } else {
         const params = {};
         if (search) params.search = search;
-        if (status) params.status = status;
-        if (isFreelancer) params.status = status || 'open';
+        params.status = status || 'open';
         const res = await projectService.getProjects(params);
         data = res.data;
       }
@@ -45,7 +51,7 @@ export default function ProjectsPage() {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [search, status, isClient, isFreelancer]);
+  }, [search, status, isClient, isFreelancer, tab]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,17 +61,39 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
-      <Navbar />
       <LoginModal open={showLoginModal} onClose={closeLoginModal} />
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <div className="mb-8">
-          <h1 className="text-text">{isClient ? 'My Projects' : 'Browse Projects'}</h1>
+          <h1 className="text-text">{isClient ? 'My Posted Projects' : 'Projects'}</h1>
           <p className="text-muted mt-1 font-light">
             {isClient
               ? 'Manage your posted projects and review proposals'
-              : 'Find AI-matched opportunities that fit your skills'}
+              : 'Browse open work, track applications, and hired projects'}
           </p>
         </div>
+
+        {isFreelancer && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {[
+              { id: 'browse', label: 'Browse Projects' },
+              { id: 'applied', label: 'Applied Projects' },
+              { id: 'hired', label: 'Hired Projects' },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSearchParams({ tab: id })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  tab === id
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted hover:text-text'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <div className="flex-1 relative">
@@ -75,22 +103,27 @@ export default function ProjectsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search projects..."
-              className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+              disabled={isClient || tab !== 'browse'}
+              className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:opacity-60"
             />
           </div>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="px-4 py-2.5 bg-card border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
-          >
-            <option value="">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
-          <Button variant="outline">
-            <Filter className="w-4 h-4" /> Filters
-          </Button>
+          {isFreelancer && tab === 'browse' && (
+            <>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="px-4 py-2.5 bg-card border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
+              >
+                <option value="">Open only</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+              <Button variant="outline">
+                <Filter className="w-4 h-4" /> Filters
+              </Button>
+            </>
+          )}
         </div>
 
         {loading ? (

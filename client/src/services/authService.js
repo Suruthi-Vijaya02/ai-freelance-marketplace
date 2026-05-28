@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -23,12 +23,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+    const isAuthRequest = url.includes('/auth/login') || url.includes('/auth/register');
+    const onAuthPage = ['/login', '/signup'].includes(window.location.pathname);
+
+    if (status === 401 && !isAuthRequest && !onAuthPage) {
       localStorage.removeItem('svr_user');
       localStorage.removeItem('svr_token');
       window.location.href = '/login';
     }
-    return Promise.reject(error);
+
+    const data = error.response?.data;
+    return Promise.reject(
+      data && typeof data === 'object' ? data : { message: error.message || 'Request failed' }
+    );
   }
 );
 
@@ -45,6 +54,7 @@ export const projectService = {
   getAll: (params) => api.get('/projects', { params }),
   getProjects: (params) => api.get('/projects', { params }),
   getMyProjects: () => api.get('/projects/my'),
+  getHiredProjects: () => api.get('/projects/hired'),
   getById: (id) => api.get(`/projects/${id}`),
   getProject: (id) => api.get(`/projects/${id}`),
   create: (data) => api.post('/projects', data),
@@ -74,7 +84,15 @@ export const proposalService = {
   getByProjectQuery: (projectId) => api.get(`/proposals`, { params: { project: projectId } }),
   create: (data) => api.post('/proposals', data),
   submitProposal: (data) => api.post('/proposals', data),
+  updateProposal: (id, data) => api.patch(`/proposals/${id}`, data),
   updateStatus: (id, status) => api.patch(`/proposals/${id}/status`, { status }),
+};
+
+export const interviewService = {
+  schedule: (data) => api.post('/interviews/schedule', data),
+  getMyInterviews: () => api.get('/interviews/my-interviews'),
+  getById: (id) => api.get(`/interviews/${id}`),
+  updateStatus: (id, body) => api.patch(`/interviews/${id}/status`, body),
 };
 
 // Message services

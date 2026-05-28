@@ -25,12 +25,31 @@ export async function updateProfile(req, res) {
       delete updates.resumeText;
     }
 
-    const user = await User.findByIdAndUpdate(req.user._id, updates, {
-      new: true,
-      runValidators: true,
-    }).select('-password');
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    return res.json(user);
+    if (updates.freelancerProfile && user.role === 'freelancer') {
+      user.freelancerProfile = { ...user.freelancerProfile?.toObject?.(), ...updates.freelancerProfile };
+      if (updates.freelancerProfile.skills) user.skills = updates.freelancerProfile.skills;
+      if (updates.freelancerProfile.hourlyRate != null) user.hourlyRate = updates.freelancerProfile.hourlyRate;
+      if (updates.freelancerProfile.bio) user.bio = updates.freelancerProfile.bio;
+      if (updates.freelancerProfile.portfolio) user.portfolio = updates.freelancerProfile.portfolio;
+      delete updates.freelancerProfile;
+    }
+
+    if (updates.clientProfile && user.role === 'client') {
+      user.clientProfile = { ...user.clientProfile?.toObject?.(), ...updates.clientProfile };
+      if (updates.clientProfile.companyName) user.title = updates.clientProfile.companyName;
+      if (updates.clientProfile.description) user.bio = updates.clientProfile.description;
+      delete updates.clientProfile;
+    }
+
+    Object.assign(user, updates);
+    user.syncRoleProfile();
+    await user.save();
+
+    const saved = await User.findById(user._id).select('-password');
+    return res.json(saved);
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

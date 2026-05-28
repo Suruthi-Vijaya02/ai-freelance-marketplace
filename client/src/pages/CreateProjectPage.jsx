@@ -13,7 +13,7 @@ const aiDescription =
 
 export default function CreateProjectPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ title: '', description: '', budget: '', skills: '', duration: '8 weeks' });
+  const [form, setForm] = useState({ title: '', description: '', budget: '', skills: '', duration: '8 weeks', biddingEnabled: false });
   const [milestones, setMilestones] = useState([{ title: 'Phase 1', amount: '' }]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -43,6 +43,7 @@ export default function CreateProjectPage() {
         duration: form.duration,
         status: 'open',
         milestones: milestoneData,
+        biddingEnabled: Boolean(form.biddingEnabled),
       });
       toast.success('Project created successfully!');
       navigate('/dashboard/client');
@@ -146,6 +147,16 @@ export default function CreateProjectPage() {
               ))}
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.biddingEnabled}
+              onChange={(e) => setForm({ ...form, biddingEnabled: e.target.checked })}
+              className="rounded border-border"
+            />
+            Enable live bidding (optional auction-style leaderboard)
+          </label>
 
           <Button type="submit" className="w-full" disabled={submitting}>
             <Sparkles className="w-4 h-4" /> {submitting ? 'Creating...' : 'Post Project'}

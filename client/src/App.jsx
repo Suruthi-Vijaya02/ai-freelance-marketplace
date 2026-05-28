@@ -23,6 +23,10 @@ import PaymentsPage from './pages/PaymentsPage';
 import EarningsPage from './pages/EarningsPage';
 import MyProposalsPage from './pages/MyProposalsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
+import InterviewRoom from './pages/InterviewRoom';
+import MyInterviewsPage from './pages/MyInterviewsPage';
+import SubmitProposalPage from './pages/SubmitProposalPage';
+import ProjectProposalsPage from './pages/ProjectProposalsPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 
 function ProfileRedirect() {
@@ -76,6 +80,8 @@ export default function App() {
               <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
               <Route path="/talent" element={<ProtectedRoute roles={['client', 'admin']}><TalentPage /></ProtectedRoute>} />
               <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
+              <Route path="/projects/:id/proposal" element={<FreelancerOnly><SubmitProposalPage /></FreelancerOnly>} />
+              <Route path="/projects/:id/proposals" element={<ClientOnly><ProjectProposalsPage /></ClientOnly>} />
               <Route path="/bidding/:id" element={<ProtectedRoute><LiveBiddingPage /></ProtectedRoute>} />
               <Route path="/messages" element={<ProtectedRoute><MessagingPage /></ProtectedRoute>} />
               <Route path="/messages/:conversationId" element={<ProtectedRoute><MessagingPage /></ProtectedRoute>} />
@@ -85,6 +91,9 @@ export default function App() {
               <Route path="/profile" element={<ProfileRedirect />} />
               <Route path="/profile/:id" element={<ProfilePage />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
+              <Route path="/interviews" element={<ProtectedRoute><MyInterviewsPage /></ProtectedRoute>} />
+              <Route path="/interviews/:id" element={<ProtectedRoute><InterviewRoom /></ProtectedRoute>} />
+              <Route path="/interview/:id" element={<ProtectedRoute><InterviewRoom /></ProtectedRoute>} />
             </Route>
 
             {/* Role-specific public/authenticated pages */}

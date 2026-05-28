@@ -13,6 +13,7 @@ import {
   BarChart3,
   Scale,
   FolderKanban,
+  Calendar,
 } from 'lucide-react';
 
 export const ROLES = {
@@ -61,17 +62,21 @@ export function canAccessRoute(user, allowedRoles) {
 const NAV_CONFIG = {
   freelancer: [
     { to: '/dashboard/freelancer', label: 'Dashboard', icon: LayoutDashboard, end: true },
-    { to: '/projects', label: 'Projects', icon: Briefcase },
+    { to: '/projects?tab=browse', label: 'Browse Projects', icon: Briefcase },
+    { to: '/projects?tab=applied', label: 'Applied', icon: FolderKanban },
+    { to: '/projects?tab=hired', label: 'Hired', icon: Briefcase },
     { to: '/my-proposals', label: 'My Proposals', icon: FileText },
     { to: '/earnings', label: 'Earnings', icon: DollarSign },
     { to: '/payments', label: 'Payments', icon: CreditCard },
     { to: '/messages', label: 'Messages', icon: MessageSquare },
+    { to: '/interviews', label: 'Interviews', icon: Calendar },
   ],
   client: [
     { to: '/dashboard/client', label: 'Dashboard', icon: LayoutDashboard, end: true },
-    { to: '/projects', label: 'Projects', icon: Briefcase },
+    { to: '/projects', label: 'My Posted Projects', icon: Briefcase },
     { to: '/create-project', label: 'Create Project', icon: PlusCircle },
     { to: '/talent', label: 'Talent', icon: Users },
+    { to: '/interviews', label: 'Interviews', icon: Calendar },
     { to: '/payments', label: 'Payments', icon: CreditCard },
     { to: '/messages', label: 'Messages', icon: MessageSquare },
   ],

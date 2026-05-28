@@ -1,5 +1,6 @@
 import Project from '../models/Project.js';
 import User from '../models/User.js';
+import Proposal from '../models/Proposal.js';
 import {
   rankProjectsForFreelancer,
   rankFreelancersForProject,
@@ -65,6 +66,24 @@ export async function getMyProjects(req, res) {
     const projects = await Project.find({ client: req.user._id })
       .populate('client', 'name avatar')
       .sort({ createdAt: -1 });
+    return res.json(projects);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+
+export async function getHiredProjects(req, res) {
+  try {
+    const accepted = await Proposal.find({
+      freelancer: req.user._id,
+      status: 'accepted',
+    }).populate('project');
+
+    const projects = accepted
+      .map((p) => p.project)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
     return res.json(projects);
   } catch (err) {
     return res.status(500).json({ message: err.message });

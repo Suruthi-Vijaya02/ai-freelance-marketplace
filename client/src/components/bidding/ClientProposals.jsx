@@ -49,12 +49,8 @@ export default function ClientProposals({ projectId, project, bids, setBids, onP
 
   const handleMessage = async (freelancerId) => {
     try {
-      const { data } = await messageService.sendMessage({
-        receiver: freelancerId,
-        content: `Hi! I'd like to discuss your proposal for "${project?.title}".`,
-      });
-      const convId = data.conversationId;
-      navigate(`/messages/${convId}`);
+      const { data } = await messageService.createConversation(freelancerId);
+      navigate(`/messages/${data.id}`);
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     }
@@ -76,7 +72,7 @@ export default function ClientProposals({ projectId, project, bids, setBids, onP
         ) : (
           <AnimatePresence mode="popLayout">
             <div className="space-y-4">
-              {bids.map((bid) => (
+              {[...bids].sort((a, b) => a.price - b.price).map((bid) => (
                 <motion.div
                   key={bid.id}
                   layout

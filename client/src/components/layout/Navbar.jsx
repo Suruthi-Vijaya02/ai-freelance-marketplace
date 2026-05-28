@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, LayoutDashboard, Briefcase, Users, MessageSquare, ChevronDown } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
 import Button from '../ui/Button';
 import Logo from '../ui/Logo';
 import { useAuth } from '../../context/AuthContext';
@@ -33,13 +33,6 @@ export default function Navbar() {
         ? '/admin'
         : '/dashboard/client';
 
-  const showTalentLink = user?.role === 'client' || user?.role === 'admin';
-  const authNavLinks = [
-    { to: '/projects', label: 'Projects', icon: Briefcase },
-    ...(showTalentLink ? [{ to: '/talent', label: 'Talent', icon: Users }] : []),
-    { to: '/messages', label: 'Messages', icon: MessageSquare },
-  ];
-
   const scrollTo = (href) => {
     setOpen(false);
     if (href.startsWith('/#')) {
@@ -56,7 +49,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-surface/95 backdrop-blur-md">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-3 group" onClick={() => setOpen(false)}>
+          <Link to={isAuthenticated ? dashboardPath : '/'} className="flex items-center gap-3 group" onClick={() => setOpen(false)}>
             <Logo size={36} />
             <div className="hidden sm:block">
               <span className="font-heading text-lg font-semibold text-text group-hover:text-primary transition-colors">
@@ -66,7 +59,7 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {!isAuthenticated ? (
+          {!isAuthenticated && (
             <div className="hidden md:flex items-center gap-6">
               {guestLinks.map((link) => (
                 <a
@@ -82,33 +75,15 @@ export default function Navbar() {
                 </a>
               ))}
             </div>
-          ) : (
-            <div className="hidden md:flex items-center gap-6">
-              {authNavLinks.map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 text-sm font-medium transition-colors ${
-                      isActive ? 'text-primary' : 'text-muted hover:text-text'
-                    }`
-                  }
-                >
-                  <link.icon className="w-4 h-4" />
-                  {link.label}
-                </NavLink>
-              ))}
-            </div>
           )}
 
           <div className="hidden md:flex items-center gap-3">
-            <div title={connected ? 'Connected' : 'Disconnected'} className="flex items-center gap-2 px-2">
-              <span
-                className={`w-2 h-2 rounded-full ${connected ? 'bg-success' : 'bg-error'}`}
-                aria-hidden
-              />
-              <span className="text-xs text-muted">{connected ? 'LIVE' : 'OFFLINE'}</span>
-            </div>
+            {isAuthenticated && (
+              <div title={connected ? 'Connected' : 'Disconnected'} className="flex items-center gap-2 px-2">
+                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-success' : 'bg-error'}`} aria-hidden />
+                <span className="text-xs text-muted">{connected ? 'LIVE' : 'OFFLINE'}</span>
+              </div>
+            )}
 
             {isAuthenticated ? (
               <div className="relative">
@@ -129,6 +104,13 @@ export default function Navbar() {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden />
                     <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-surface shadow-lg z-50 py-1">
+                      <Link
+                        to={dashboardPath}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-card"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <LayoutDashboard className="w-4 h-4" /> Dashboard
+                      </Link>
                       <Link
                         to={`/profile/${user?._id || user?.id}`}
                         className="block px-4 py-2 text-sm text-text hover:bg-card"
@@ -204,22 +186,13 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                {authNavLinks.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className="flex items-center gap-2 text-muted hover:text-text py-1"
-                    onClick={() => setOpen(false)}
-                  >
-                    <link.icon className="w-4 h-4" />
-                    {link.label}
-                  </Link>
-                ))}
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 text-error py-1"
-                >
+                <Link to={dashboardPath} className="block text-text py-1" onClick={() => setOpen(false)}>
+                  Dashboard
+                </Link>
+                <Link to={`/profile/${user?._id || user?.id}`} className="block text-text py-1" onClick={() => setOpen(false)}>
+                  Profile
+                </Link>
+                <button type="button" onClick={handleLogout} className="flex items-center gap-2 text-error py-1">
                   <LogOut className="w-4 h-4" /> Logout
                 </button>
               </>

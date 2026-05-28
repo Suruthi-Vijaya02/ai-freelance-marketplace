@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Star, MapPin, Clock, Save, AlertCircle } from 'lucide-react';
+import { Star, MapPin, Clock, Save, AlertCircle, Building2 } from 'lucide-react';
+import HireMeModal from '../components/interview/HireMeModal';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -35,6 +36,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [updatingAvailability, setUpdatingAvailability] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [showHireModal, setShowHireModal] = useState(false);
 
   const profileId = id || authUser?._id || authUser?.id;
   const navigate = useNavigate();
@@ -54,10 +56,14 @@ export default function ProfilePage() {
       if (signal?.aborted) return;
       setProfile(userRes.data);
       setReviews(reviewsRes.data || []);
+      const cp = userRes.data.clientProfile || {};
       setEditForm({
         name: userRes.data.name,
         title: userRes.data.title || '',
         bio: userRes.data.bio || '',
+        companyName: cp.companyName || userRes.data.title || '',
+        companyBio: cp.description || userRes.data.bio || '',
+        industry: cp.industry || '',
         location: userRes.data.location || '',
         hourlyRate: userRes.data.hourlyRate || '',
         skills: (userRes.data.skills || []).join(', '),
@@ -90,6 +96,31 @@ export default function ProfilePage() {
       toast.error(getApiErrorMessage(err));
     } finally {
       setUpdatingAvailability(false);
+    }
+  };
+
+  const handleSaveClientQuick = async () => {
+    setSaving(true);
+    try {
+      const { data } = await userService.updateProfile({
+        name: editForm.name,
+        title: editForm.companyName || editForm.title,
+        bio: editForm.companyBio || editForm.bio,
+        location: editForm.location,
+        clientProfile: {
+          companyName: editForm.companyName || editForm.title,
+          description: editForm.companyBio || editForm.bio,
+          industry: editForm.industry,
+        },
+      });
+      setProfile(data);
+      if (authUser) login(data, localStorage.getItem('svr_token'));
+      setEditing(false);
+      toast.success('Profile updated!');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -162,11 +193,30 @@ export default function ProfilePage() {
   const avatar = profile.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.name}`;
   const availStatus = profile.availability?.status || (profile.availability?.available !== false ? 'full-time' : 'not-available');
   const availBadge = getAvailabilityBadge(availStatus);
-  const profileCheck = isFreelancer && isOwnProfile ? validateFreelancerProfile(profile) : { isComplete: true, missing: [] };
+  const isProfileFreelancer = profile?.role === 'freelancer';
+  const isProfileClient = profile?.role === 'client';
+  const profileCheck =
+    isOwnProfile && isProfileFreelancer ? validateFreelancerProfile(profile) : { isComplete: true, missing: [] };
+  const completion = profile?.profileCompletion ?? 0;
+  const clientProfile = profile?.clientProfile || {};
+  const freelancerProfile = profile?.freelancerProfile || {};
+  const canHire = isClient && isProfileFreelancer && !isOwnProfile;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-8">
-      {isOwnProfile && isFreelancer && !profileCheck.isComplete && (
+      {isOwnProfile && (
+        <div className="mb-4">
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-muted">Profile completion</span>
+            <span className="text-text font-medium">{completion}%</span>
+          </div>
+          <div className="h-2 bg-border rounded-full overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${completion}%` }} />
+          </div>
+        </div>
+      )}
+
+      {isOwnProfile && isProfileFreelancer && !profileCheck.isComplete && (
         <div className="p-4 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
           <div>
@@ -183,19 +233,34 @@ export default function ProfilePage() {
         <img src={avatar} alt="" className="w-28 h-28 rounded-2xl border-4 border-surface bg-card" />
         <div className="flex-1 pt-2">
           <h1 className="text-3xl font-black text-text">{profile.name}</h1>
-          <p className="text-lg text-muted font-light">{profile.title || profile.role}</p>
+          <p className="text-lg text-muted font-light">
+            {isProfileClient
+              ? clientProfile.companyName || profile.title
+              : profile.title || profile.role}
+          </p>
           <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted">
-            <span className="flex items-center gap-1">
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-              {profile.rating || 0} ({profile.totalReviews || 0} reviews)
-            </span>
+            {isProfileFreelancer && (
+              <>
+                <span className="flex items-center gap-1">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  {profile.rating || 0} ({profile.totalReviews || 0} reviews)
+                </span>
+                {(freelancerProfile.hourlyRate ?? profile.hourlyRate) > 0 && (
+                  <span className="text-secondary font-medium">
+                    {formatCurrency(freelancerProfile.hourlyRate ?? profile.hourlyRate)}/hr
+                  </span>
+                )}
+              </>
+            )}
+            {isProfileClient && clientProfile.industry && (
+              <span className="flex items-center gap-1">
+                <Building2 className="w-4 h-4" /> {clientProfile.industry}
+              </span>
+            )}
             {profile.location && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-4 h-4" /> {profile.location}
               </span>
-            )}
-            {profile.hourlyRate > 0 && (
-              <span className="text-secondary font-medium">{formatCurrency(profile.hourlyRate)}/hr</span>
             )}
           </div>
           <div className="flex gap-3 mt-4">
@@ -210,7 +275,9 @@ export default function ProfilePage() {
               </>
             ) : (
                 <>
-                  {isClient && <Button>Hire Now</Button>}
+                  {canHire && (
+                    <Button onClick={() => setShowHireModal(true)}>Hire Me</Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={async () => {
@@ -229,11 +296,12 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+        {isProfileFreelancer && (
         <div className="flex flex-col items-end gap-2 mt-4 md:mt-8">
           <Badge color={availBadge.color}>
             <Clock className="w-3 h-3 mr-1 inline" /> {availBadge.label}
           </Badge>
-          {isOwnProfile && isFreelancer && (
+          {isOwnProfile && (
             <select
               value={availStatus}
               onChange={(e) => handleAvailabilityChange(e.target.value)}
@@ -246,9 +314,10 @@ export default function ProfilePage() {
             </select>
           )}
         </div>
+        )}
       </div>
 
-      {editing && isOwnProfile && (
+      {editing && isOwnProfile && isProfileFreelancer && (
         <Card>
           <h2 className="font-bold text-text mb-4">Quick Edit</h2>
           <div className="grid md:grid-cols-2 gap-4">
@@ -306,19 +375,70 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {profile.bio && <p className="text-muted leading-relaxed max-w-3xl font-light">{profile.bio}</p>}
+      {editing && isOwnProfile && isProfileClient && (
+        <Card>
+          <h2 className="font-bold text-text mb-4">Quick Edit — Company</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Input label="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+            <Input
+              label="Company name"
+              value={editForm.companyName || editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value, title: e.target.value })}
+            />
+            <Input label="Industry" value={editForm.industry || ''} onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })} />
+            <Input label="Location" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-text">About company</label>
+              <textarea
+                rows={3}
+                value={editForm.companyBio || editForm.bio}
+                onChange={(e) => setEditForm({ ...editForm, companyBio: e.target.value, bio: e.target.value })}
+                className="w-full mt-1.5 px-4 py-2.5 bg-surface border border-border rounded-lg text-text"
+              />
+            </div>
+          </div>
+          <Button className="mt-4" onClick={handleSaveClientQuick} disabled={saving}>
+            <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </Card>
+      )}
 
-      <div className="flex flex-wrap gap-2">
-        {(profile.skills || []).map((s) => (
-          <Badge key={s} color="primary">{s}</Badge>
-        ))}
-      </div>
+      {(freelancerProfile.bio || profile.bio || clientProfile.description) && (
+        <p className="text-muted leading-relaxed max-w-3xl font-light">
+          {isProfileClient ? clientProfile.description || profile.bio : freelancerProfile.bio || profile.bio}
+        </p>
+      )}
 
-      {(profile.portfolio || []).length > 0 && (
+      {isProfileClient && (
+        <Card className="mt-6">
+          <h2 className="font-bold text-text mb-3">Company Details</h2>
+          <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+            {clientProfile.companySize && (
+              <div><dt className="text-muted">Size</dt><dd className="text-text">{clientProfile.companySize}</dd></div>
+            )}
+            {clientProfile.companyWebsite && (
+              <div><dt className="text-muted">Website</dt><dd className="text-text">{clientProfile.companyWebsite}</dd></div>
+            )}
+            {clientProfile.budgetRange && (
+              <div><dt className="text-muted">Budget</dt><dd className="text-text">{clientProfile.budgetRange}</dd></div>
+            )}
+          </dl>
+        </Card>
+      )}
+
+      {isProfileFreelancer && (
+        <div className="flex flex-wrap gap-2 mt-4">
+          {(freelancerProfile.skills || profile.skills || []).map((s) => (
+            <Badge key={s} color="primary">{s}</Badge>
+          ))}
+        </div>
+      )}
+
+      {isProfileFreelancer && (freelancerProfile.portfolio || profile.portfolio || []).length > 0 && (
         <section>
           <h2 className="text-xl font-bold text-text mb-4">Portfolio</h2>
           <div className="grid md:grid-cols-3 gap-4">
-            {profile.portfolio.map((item, idx) => (
+            {(freelancerProfile.portfolio || profile.portfolio).map((item, idx) => (
               <Card key={item._id || idx} hover className="!p-4">
                 <h3 className="font-medium text-text">{item.title}</h3>
                 {item.url && (
@@ -354,6 +474,14 @@ export default function ProfilePage() {
           </div>
         )}
       </section>
+
+      {showHireModal && canHire && (
+        <HireMeModal
+          freelancerId={profileId}
+          freelancerName={profile.name}
+          onClose={() => setShowHireModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { CheckCircle, Clock, Lock, CreditCard } from 'lucide-react';
-import Navbar from '../components/layout/Navbar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
@@ -110,20 +109,15 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface">
-        <Navbar />
-        <main className="max-w-5xl mx-auto px-4 py-8">
-          <Skeleton className="h-8 w-64 mb-8" />
-          <Skeleton className="h-96 w-full" />
-        </main>
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      <Navbar />
-      <main className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto space-y-8">
         <h1 className="text-2xl font-black text-text">Payment & Escrow</h1>
         <p className="text-muted mt-1 font-light">
           Project: {project?.title || '—'}
@@ -276,7 +270,6 @@ export default function PaymentPage() {
             </Card>
           )}
         </div>
-      </main>
     </div>
   );
 }

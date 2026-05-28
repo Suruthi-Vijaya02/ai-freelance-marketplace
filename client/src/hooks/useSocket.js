@@ -5,6 +5,19 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
 
 let socketInstance = null;
 const connectionSubscribers = new Set();
+const socketJoinState = {
+  userId: null,
+  conversationId: null,
+  projectId: null,
+  interviewRoomId: null,
+};
+
+function rejoinRooms(socket) {
+  if (socketJoinState.userId) socket.emit('join_user', socketJoinState.userId);
+  if (socketJoinState.conversationId) socket.emit('join_conversation', socketJoinState.conversationId);
+  if (socketJoinState.projectId) socket.emit('join_project', socketJoinState.projectId);
+  if (socketJoinState.interviewRoomId) socket.emit('join_interview', socketJoinState.interviewRoomId);
+}
 
 function notifyConnection(connected) {
   connectionSubscribers.forEach((cb) => cb(connected));
@@ -22,7 +35,10 @@ function getSocketInstance() {
       reconnectionDelayMax: 5000,
     });
 
-    socketInstance.on('connect', () => notifyConnection(true));
+    socketInstance.on('connect', () => {
+      notifyConnection(true);
+      rejoinRooms(socketInstance);
+    });
     socketInstance.on('disconnect', () => notifyConnection(false));
   }
   return socketInstance;
@@ -39,7 +55,7 @@ function getConnectionSnapshot() {
   return socketInstance?.connected ?? false;
 }
 
-export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer, onAnswer, onIceCandidate, onCallEnd } = {}) {
+export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer, onAnswer, onIceCandidate, onCallEnd, onProposalUpdated } = {}) {
   const socketRef = useRef(null);
   const onNewBidRef = useRef(onNewBid);
   const onNewMessageRef = useRef(onNewMessage);
@@ -48,6 +64,7 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
   const onAnswerRef = useRef(onAnswer);
   const onIceCandidateRef = useRef(onIceCandidate);
   const onCallEndRef = useRef(onCallEnd);
+  const onProposalUpdatedRef = useRef(onProposalUpdated);
   const connected = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, () => false);
 
   useEffect(() => {
@@ -79,33 +96,43 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
   }, [onCallEnd]);
 
   useEffect(() => {
+    onProposalUpdatedRef.current = onProposalUpdated;
+  }, [onProposalUpdated]);
+
+  useEffect(() => {
     const socket = getSocketInstance();
     socketRef.current = socket;
 
     const handleNewBid = (bid) => onNewBidRef.current?.(bid);
     const handleNewMessage = (msg) => onNewMessageRef.current?.(msg);
+    const handleNewMessageCamel = (msg) => onNewMessageRef.current?.(msg);
     const handleTyping = (payload) => onTypingRef.current?.(payload);
     const handleOffer = (payload) => onOfferRef.current?.(payload);
     const handleAnswer = (payload) => onAnswerRef.current?.(payload);
     const handleIceCandidate = (payload) => onIceCandidateRef.current?.(payload);
     const handleCallEnd = (payload) => onCallEndRef.current?.(payload);
+    const handleProposalUpdated = (payload) => onProposalUpdatedRef.current?.(payload);
 
     socket.on('new_bid', handleNewBid);
     socket.on('new_message', handleNewMessage);
+    socket.on('newMessage', handleNewMessageCamel);
     socket.on('typing', handleTyping);
     socket.on('webrtc_offer', handleOffer);
     socket.on('webrtc_answer', handleAnswer);
     socket.on('webrtc_ice_candidate', handleIceCandidate);
     socket.on('call_end', handleCallEnd);
+    socket.on('proposal_updated', handleProposalUpdated);
 
     return () => {
       socket.off('new_bid', handleNewBid);
       socket.off('new_message', handleNewMessage);
+      socket.off('newMessage', handleNewMessageCamel);
       socket.off('typing', handleTyping);
       socket.off('webrtc_offer', handleOffer);
       socket.off('webrtc_answer', handleAnswer);
       socket.off('webrtc_ice_candidate', handleIceCandidate);
       socket.off('call_end', handleCallEnd);
+      socket.off('proposal_updated', handleProposalUpdated);
       socketRef.current = null;
     };
   }, []);
@@ -113,6 +140,7 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
   useEffect(() => {
     if (!projectId) return undefined;
     const socket = getSocketInstance();
+    socketJoinState.projectId = projectId;
     socket.emit('join_project', projectId);
     return undefined;
   }, [projectId]);
@@ -127,7 +155,22 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
 
   const joinConversation = (conversationId) => {
     if (conversationId) {
+      socketJoinState.conversationId = conversationId;
       socketRef.current?.emit('join_conversation', conversationId);
+    }
+  };
+
+  const joinUser = (userId) => {
+    if (userId) {
+      socketJoinState.userId = String(userId);
+      socketRef.current?.emit('join_user', socketJoinState.userId);
+    }
+  };
+
+  const joinInterview = (roomId) => {
+    if (roomId) {
+      socketJoinState.interviewRoomId = roomId;
+      socketRef.current?.emit('join_interview', roomId);
     }
   };
 
@@ -165,6 +208,8 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
     emitBid,
     joinProject,
     joinConversation,
+    joinUser,
+    joinInterview,
     emitMessage,
     emitTypingStart,
     emitTypingStop,

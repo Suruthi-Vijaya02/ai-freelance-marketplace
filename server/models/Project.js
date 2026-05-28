@@ -24,6 +24,8 @@ const projectSchema = new mongoose.Schema(
     duration: String,
     milestones: [milestoneSchema],
     proposalsCount: { type: Number, default: 0 },
+    biddingEnabled: { type: Boolean, default: false },
+    hiredFreelancer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Search, Users, Star, MapPin } from 'lucide-react';
-import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -39,7 +38,6 @@ export default function TalentPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
-      <Navbar />
       <LoginModal open={showLoginModal} onClose={closeLoginModal} />
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <div className="mb-8">

@@ -41,6 +41,7 @@ export default function MessagingPage() {
   const typingTimeoutRef = useRef(null);
   const activeConvRef = useRef(activeConv);
   const messagesEndRef = useRef(null);
+  const reloadConversationsRef = useRef(() => {});
   const userId = user?._id || user?.id;
 
   useEffect(() => {
@@ -62,8 +63,7 @@ export default function MessagingPage() {
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === msgConversationId);
         if (!existing) {
-          // New conversation - reload list
-          loadConversations();
+          reloadConversationsRef.current();
           return prev;
         }
         return prev.map((c) =>
@@ -86,7 +86,7 @@ export default function MessagingPage() {
         return [...prev, mapped];
       });
     },
-    [userId, loadConversations]
+    [userId]
   );
 
   const handleTyping = useCallback(({ conversationId, userName, typing }) => {
@@ -139,7 +139,7 @@ export default function MessagingPage() {
     }
   }, []);
 
-  const { connected, joinConversation, emitMessage, emitTypingStart, emitTypingStop, emitOffer, emitAnswer, emitIceCandidate, emitCallEnd } = useSocket(null, {
+  const { connected, joinConversation, joinUser, emitTypingStart, emitTypingStop, emitOffer, emitAnswer, emitIceCandidate, emitCallEnd } = useSocket(null, {
     onNewMessage: handleNewMessage,
     onTyping: handleTyping,
     onOffer: handleOffer,
@@ -172,7 +172,12 @@ export default function MessagingPage() {
     } finally {
       if (!signal?.aborted) setLoadingConvs(false);
     }
-  }, [isAuthenticated, userId, paramConvId, navigate]);
+  }, [isAuthenticated, userId, normalizedParamConvId, activeConv, navigate]);
+
+  reloadConversationsRef.current = () => {
+    const c = new AbortController();
+    loadConversations(c.signal);
+  };
 
   const loadMessages = useCallback(async (convId, signal) => {
     if (!convId || !isAuthenticated) return;
@@ -201,6 +206,10 @@ export default function MessagingPage() {
     if (activeConv) loadMessages(activeConv, controller.signal);
     return () => controller.abort();
   }, [activeConv, loadMessages]);
+
+  useEffect(() => {
+    if (userId) joinUser(userId);
+  }, [userId, joinUser]);
 
   useEffect(() => {
     if (activeConv) joinConversation(activeConv);
@@ -358,14 +367,9 @@ export default function MessagingPage() {
         content: newMessage.trim(),
       });
       const mapped = mapApiMessage(data, userId);
-      setMessages((prev) => [...prev, mapped]);
-      emitMessage({
-        conversationId: activeConv,
-        id: data._id,
-        content: data.content,
-        sender: data.sender,
-        receiver: data.receiver,
-        timestamp: data.createdAt,
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === mapped.id)) return prev;
+        return [...prev, mapped];
       });
       setNewMessage('');
       setTypingUser(null);

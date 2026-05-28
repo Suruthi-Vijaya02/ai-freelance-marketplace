@@ -1,16 +1,14 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import mongoose from 'mongoose';
+import { emitConversationMessage } from '../utils/emitConversationMessage.js';
+import {
+  normalizeConversationId,
+  buildConversationId,
+  getConversationIdVariants,
+} from '../utils/conversationId.js';
 
-export function normalizeConversationId(conversationId) {
-  if (!conversationId || typeof conversationId !== 'string') return conversationId;
-  return conversationId.startsWith('conv_') ? conversationId.slice(5) : conversationId;
-}
-
-export function getConversationIdVariants(conversationId) {
-  const normalized = normalizeConversationId(conversationId);
-  return [normalized, `conv_${normalized}`];
-}
+export { normalizeConversationId, buildConversationId, getConversationIdVariants };
 
 // Get all conversations for the logged-in user
 export async function getConversations(req, res) {
@@ -179,14 +177,16 @@ export async function sendMessage(req, res) {
     // Emit real-time notification
     const io = req.app.get('io');
     if (io) {
-      io.to(`conversation:${convId}`).emit('new_message', {
+      emitConversationMessage(io, convId, {
         _id: message._id,
+        id: message._id.toString(),
         conversationId: convId,
         sender: message.sender,
         receiver: message.receiver,
         content: message.content,
         createdAt: message.createdAt,
-        read: message.read
+        timestamp: message.createdAt,
+        read: message.read,
       });
 
       // Notify receiver if not in conversation
@@ -211,16 +211,20 @@ export async function createConversation(req, res) {
     const { participantId } = req.body;
     const userId = req.user._id || req.user.id;
 
+    const participant = await User.findById(participantId).select('name avatar role');
+    if (!participant) {
+      return res.status(404).json({ message: 'Participant not found' });
+    }
+
+    if (req.user.role === 'freelancer' && participant.role === 'freelancer') {
+      return res.status(403).json({ message: 'Freelancers cannot start conversations with other freelancers' });
+    }
+
     const conversationId = normalizeConversationId([userId.toString(), participantId.toString()].sort((a, b) => a.localeCompare(b)).join('_'));
     const conversationIdVariants = getConversationIdVariants(conversationId);
 
     // Check if conversation already exists
     const existingMessages = await Message.findOne({ conversationId: { $in: conversationIdVariants } });
-
-    const participant = await User.findById(participantId).select('name avatar role');
-    if (!participant) {
-      return res.status(404).json({ message: 'Participant not found' });
-    }
 
     if (!existingMessages) {
       await Message.create({
@@ -248,11 +252,6 @@ export async function createConversation(req, res) {
   }
 }
 
-
-// Utility: Build consistent conversation ID from two user IDs
-export function buildConversationId(userId1, userId2) {
-  return [userId1.toString(), userId2.toString()].sort((a, b) => a.localeCompare(b)).join('_');
-}
 
 // Utility: Get the other user ID in a conversation
 export function getOtherUserId(conversationId, currentUserId) {

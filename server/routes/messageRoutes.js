@@ -3,6 +3,7 @@ import {
   getConversations,
   getMessages,
   sendMessage,
+  createConversation
 } from '../controllers/messageController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
@@ -11,5 +12,6 @@ const router = Router();
 router.get('/conversations', authMiddleware, getConversations);
 router.get('/:conversationId', authMiddleware, getMessages);
 router.post('/', authMiddleware, sendMessage);
+router.post('/conversation', authMiddleware, createConversation);
 
 export default router;

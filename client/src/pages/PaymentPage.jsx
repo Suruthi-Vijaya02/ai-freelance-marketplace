@@ -8,7 +8,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Skeleton from '../components/ui/Skeleton';
-import { useAuth } from '../context/AuthContext';
+import useRole from '../hooks/useRole';
 import { projectService, paymentService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
 
@@ -21,16 +21,13 @@ const statusConfig = {
 
 export default function PaymentPage() {
   const { projectId } = useParams();
-  const { user } = useAuth();
+  const { isClient, isFreelancer } = useRole();
   const [project, setProject] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fundAmount, setFundAmount] = useState('');
   const [selectedMilestone, setSelectedMilestone] = useState('');
   const [processing, setProcessing] = useState(false);
-
-  const isClient = user?.role === 'client' || user?.role === 'admin';
-  const isFreelancer = user?.role === 'freelancer';
 
   const loadData = useCallback(async (signal) => {
     if (!projectId) return;

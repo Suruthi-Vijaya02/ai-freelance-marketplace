@@ -42,22 +42,28 @@ export default function AuthPage({ mode = 'login' }) {
         : await authService.register(payload);
       login(data.user, data.token);
       toast.success(isLogin ? 'Welcome back!' : 'Account created!');
-      // If profile seems incomplete, redirect to onboarding for role
-      const needsFreelancerOnboard =
-        data.user.role === 'freelancer' &&
-        (!data.user.skills || data.user.skills.length === 0 || !data.user.bio || !data.user.hourlyRate);
-      const needsClientOnboard =
-        data.user.role === 'client' && (!data.user.bio || (!data.user.title && !data.user.company));
 
-      if (needsFreelancerOnboard) {
-        navigate('/onboarding/freelancer');
-      } else if (needsClientOnboard) {
-        navigate('/onboarding/client');
-      } else {
-        const redirect = consumeAuthRedirect();
-        const from = location.state?.from?.pathname;
-        navigate(redirect || from || redirectForRole(data.user.role));
+      if (!isLogin) {
+        // Onboarding should only run for newly registered users, not for returning users.
+        const needsFreelancerOnboard =
+          data.user.role === 'freelancer' &&
+          (!data.user.skills || data.user.skills.length === 0 || !data.user.bio || !data.user.hourlyRate);
+        const needsClientOnboard =
+          data.user.role === 'client' && (!data.user.bio || (!data.user.title && !data.user.company));
+
+        if (needsFreelancerOnboard) {
+          navigate('/onboarding/freelancer');
+          return;
+        }
+        if (needsClientOnboard) {
+          navigate('/onboarding/client');
+          return;
+        }
       }
+
+      const redirect = consumeAuthRedirect();
+      const from = location.state?.from?.pathname;
+      navigate(redirect || from || redirectForRole(data.user.role));
     } catch (err) {
       const msg = err?.message || 'Authentication failed';
       setError(msg);

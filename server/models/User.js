@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema(
     totalReviews: { type: Number, default: 0 },
     portfolio: [{ title: String, image: String, url: String }],
     availability: {
+      status: {
+        type: String,
+        enum: ['full-time', 'part-time', 'not-available'],
+        default: 'full-time',
+      },
       available: { type: Boolean, default: true },
       hoursPerWeek: Number,
       timezone: String,

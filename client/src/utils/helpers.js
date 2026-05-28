@@ -28,6 +28,7 @@ export function mapProposalToBid(proposal) {
   const f = proposal.freelancer || {};
   return {
     id: proposal._id || proposal.id,
+    freelancerId: f._id || proposal.freelancer,
     freelancerName: f.name || proposal.freelancerName || 'Freelancer',
     avatar: f.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.name || 'user'}`,
     price: proposal.price,
@@ -37,6 +38,11 @@ export function mapProposalToBid(proposal) {
     submittedAt: proposal.createdAt || proposal.submittedAt,
     status: proposal.status,
   };
+}
+
+export function normalizeConversationId(conversationId) {
+  if (!conversationId || typeof conversationId !== 'string') return conversationId;
+  return conversationId.startsWith('conv_') ? conversationId.slice(5) : conversationId;
 }
 
 export function getApiErrorMessage(err) {

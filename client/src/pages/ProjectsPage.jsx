@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Search, Filter, Briefcase, Clock, DollarSign, Users } from 'lucide-react';
@@ -6,15 +7,18 @@ import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import MatchScoreBadge from '../components/ui/MatchScoreBadge';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import LoginModal from '../components/ui/LoginModal';
 import { useProtectedAction } from '../hooks/useProtectedAction';
+import useRole from '../hooks/useRole';
 import { projectService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
 
 export default function ProjectsPage() {
-  const { requireAuth, showLoginModal, closeLoginModal } = useProtectedAction();
+  const { requireAuth, showLoginModal, closeLoginModal, isAuthenticated } = useProtectedAction();
+  const { isClient, isFreelancer } = useRole();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -23,17 +27,25 @@ export default function ProjectsPage() {
   const loadProjects = useCallback(async (signal) => {
     try {
       setLoading(true);
-      const params = {};
-      if (search) params.search = search;
-      if (status) params.status = status;
-      const { data } = await projectService.getProjects(params);
+      let data;
+      if (isClient) {
+        const res = await projectService.getMyProjects();
+        data = res.data;
+      } else {
+        const params = {};
+        if (search) params.search = search;
+        if (status) params.status = status;
+        if (isFreelancer) params.status = status || 'open';
+        const res = await projectService.getProjects(params);
+        data = res.data;
+      }
       if (!signal?.aborted) setProjects(Array.isArray(data) ? data : []);
     } catch (err) {
       if (!signal?.aborted) toast.error(getApiErrorMessage(err));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [search, status]);
+  }, [search, status, isClient, isFreelancer]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,8 +59,12 @@ export default function ProjectsPage() {
       <LoginModal open={showLoginModal} onClose={closeLoginModal} />
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
         <div className="mb-8">
-          <h1 className="text-text">Browse Projects</h1>
-          <p className="text-muted mt-1 font-light">Find AI-matched opportunities that fit your skills</p>
+          <h1 className="text-text">{isClient ? 'My Projects' : 'Browse Projects'}</h1>
+          <p className="text-muted mt-1 font-light">
+            {isClient
+              ? 'Manage your posted projects and review proposals'
+              : 'Find AI-matched opportunities that fit your skills'}
+          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -95,7 +111,7 @@ export default function ProjectsPage() {
                     <Badge color={p.status === 'open' ? 'success' : p.status === 'in_progress' ? 'warning' : 'muted'}>
                       {(p.status || 'open').replace('_', ' ')}
                     </Badge>
-                    {p.matchScore > 0 && <Badge color="primary">{p.matchScore}% match</Badge>}
+                    {p.matchScore > 0 && <MatchScoreBadge score={p.matchScore} />}
                   </div>
 
                   <h3 className="font-semibold text-text mb-2 line-clamp-2 flex-1">{p.title}</h3>
@@ -125,9 +141,15 @@ export default function ProjectsPage() {
 
                   <div className="flex items-center justify-between mt-auto pt-3 border-t border-border">
                     <span className="text-xs text-muted">{formatDate(p.createdAt)}</span>
-                    <Button size="sm" onClick={() => requireAuth(`/projects/${p._id}`)}>
-                      View Details
-                    </Button>
+                    {isAuthenticated ? (
+                      <Link to={`/projects/${p._id}`}>
+                        <Button size="sm">View Details</Button>
+                      </Link>
+                    ) : (
+                      <Button size="sm" onClick={() => requireAuth(`/projects/${p._id}`)}>
+                        View Details
+                      </Button>
+                    )}
                   </div>
                 </Card>
               </motion.div>

@@ -33,11 +33,11 @@ export default function Navbar() {
         ? '/admin'
         : '/dashboard/client';
 
+  const showTalentLink = user?.role === 'client' || user?.role === 'admin';
   const authNavLinks = [
     { to: '/projects', label: 'Projects', icon: Briefcase },
-    { to: '/talent', label: 'Talent', icon: Users },
-    { to: dashboardPath, label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/workspace', label: 'Messages', icon: MessageSquare },
+    ...(showTalentLink ? [{ to: '/talent', label: 'Talent', icon: Users }] : []),
+    { to: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
   const scrollTo = (href) => {

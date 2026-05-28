@@ -73,6 +73,41 @@ export async function getUserById(req, res) {
   }
 }
 
+export async function updateAvailability(req, res) {
+  try {
+    const userId = req.params.id;
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only update your own availability' });
+    }
+
+    const { status, timezone, hoursPerWeek } = req.body;
+    const validStatuses = ['full-time', 'part-time', 'not-available'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid availability status' });
+    }
+
+    const availability = {
+      ...(req.user.availability?.toObject?.() || req.user.availability || {}),
+    };
+    if (status) {
+      availability.status = status;
+      availability.available = status !== 'not-available';
+    }
+    if (timezone !== undefined) availability.timezone = timezone;
+    if (hoursPerWeek !== undefined) availability.hoursPerWeek = hoursPerWeek;
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { availability },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    return res.json(user);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+
 export async function getUserReviews(req, res) {
   try {
     const reviews = await Review.find({ reviewee: req.params.id })

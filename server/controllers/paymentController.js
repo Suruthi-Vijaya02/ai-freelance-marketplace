@@ -1,10 +1,16 @@
 import Transaction from '../models/Transaction.js';
+import Project from '../models/Project.js';
 import { createEscrowPayment, releasePayment } from '../services/paymentService.js';
 
 export async function createEscrow(req, res) {
   try {
     const { project, freelancer, milestone, amount, paymentMethod } = req.body;
-    if (!project) return res.status(400).json({ message: 'project is required' });
+    if (!project || !milestone || !amount) {
+      return res.status(400).json({ message: 'project, milestone and amount are required' });
+    }
+
+    const projectDoc = await Project.findById(project);
+    if (!projectDoc) return res.status(404).json({ message: 'Project not found' });
 
     const payment = await createEscrowPayment({
       amount,
@@ -14,13 +20,19 @@ export async function createEscrow(req, res) {
     const transaction = await Transaction.create({
       project,
       client: req.user._id,
-      freelancer,
+      freelancer: freelancer || undefined,
       milestone,
       amount,
       status: 'escrow',
       paymentMethod: paymentMethod || 'stripe',
       paymentIntentId: payment.id,
     });
+
+    const milestoneItem = projectDoc.milestones?.find((item) => item.title === milestone);
+    if (milestoneItem) {
+      milestoneItem.status = 'escrow';
+      await projectDoc.save();
+    }
 
     return res.status(201).json({ transaction, payment });
   } catch (err) {
@@ -38,10 +50,23 @@ export async function releaseMilestone(req, res) {
       return res.status(403).json({ message: 'Only the client can release escrow payments' });
     }
 
+    if (transaction.status !== 'escrow') {
+      return res.status(400).json({ message: 'Only escrowed payments can be released' });
+    }
+
     const payment = await releasePayment(transaction.paymentIntentId);
     transaction.status = 'released';
     transaction.releasedAt = new Date();
     await transaction.save();
+
+    const projectDoc = await Project.findById(transaction.project);
+    if (projectDoc) {
+      const milestoneItem = projectDoc.milestones?.find((item) => item.title === transaction.milestone);
+      if (milestoneItem) {
+        milestoneItem.status = 'released';
+        await projectDoc.save();
+      }
+    }
 
     return res.json({ transaction, payment });
   } catch (err) {

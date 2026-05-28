@@ -46,6 +46,22 @@ export function initSocketHandlers(io) {
       socket.to(`conversation:${conversationId}`).emit('typing', { conversationId, typing: false });
     });
 
+    socket.on('webrtc_offer', (data) => {
+      socket.to(`conversation:${data.conversationId}`).emit('webrtc_offer', data);
+    });
+
+    socket.on('webrtc_answer', (data) => {
+      socket.to(`conversation:${data.conversationId}`).emit('webrtc_answer', data);
+    });
+
+    socket.on('webrtc_ice_candidate', (data) => {
+      socket.to(`conversation:${data.conversationId}`).emit('webrtc_ice_candidate', data);
+    });
+
+    socket.on('call_end', (data) => {
+      socket.to(`conversation:${data.conversationId}`).emit('call_end', data);
+    });
+
     socket.on('disconnect', () => {
       console.log(`Socket disconnected: ${socket.id}`);
     });

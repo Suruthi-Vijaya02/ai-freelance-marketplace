@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getProfile,
   updateProfile,
+  updateAvailability,
   getUserById,
   getUserReviews,
   getFreelancers,
@@ -14,6 +15,7 @@ const router = Router();
 
 router.get('/profile', authMiddleware, getProfile);
 router.put('/profile', authMiddleware, updateProfile);
+router.put('/:id/availability', authMiddleware, validateObjectId(), updateAvailability);
 router.get('/freelancers', optionalAuthMiddleware, getFreelancers);
 router.get('/:id/reviews', validateObjectId(), getUserReviews);
 router.get('/:id', validateObjectId(), getUserById);

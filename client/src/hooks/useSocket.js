@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
@@ -39,11 +39,15 @@ function getConnectionSnapshot() {
   return socketInstance?.connected ?? false;
 }
 
-export function useSocket(projectId, { onNewBid, onNewMessage, onTyping } = {}) {
+export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer, onAnswer, onIceCandidate, onCallEnd } = {}) {
   const socketRef = useRef(null);
   const onNewBidRef = useRef(onNewBid);
   const onNewMessageRef = useRef(onNewMessage);
   const onTypingRef = useRef(onTyping);
+  const onOfferRef = useRef(onOffer);
+  const onAnswerRef = useRef(onAnswer);
+  const onIceCandidateRef = useRef(onIceCandidate);
+  const onCallEndRef = useRef(onCallEnd);
   const connected = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, () => false);
 
   useEffect(() => {
@@ -59,21 +63,49 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping } = {}) 
   }, [onTyping]);
 
   useEffect(() => {
+    onOfferRef.current = onOffer;
+  }, [onOffer]);
+
+  useEffect(() => {
+    onAnswerRef.current = onAnswer;
+  }, [onAnswer]);
+
+  useEffect(() => {
+    onIceCandidateRef.current = onIceCandidate;
+  }, [onIceCandidate]);
+
+  useEffect(() => {
+    onCallEndRef.current = onCallEnd;
+  }, [onCallEnd]);
+
+  useEffect(() => {
     const socket = getSocketInstance();
     socketRef.current = socket;
 
     const handleNewBid = (bid) => onNewBidRef.current?.(bid);
     const handleNewMessage = (msg) => onNewMessageRef.current?.(msg);
     const handleTyping = (payload) => onTypingRef.current?.(payload);
+    const handleOffer = (payload) => onOfferRef.current?.(payload);
+    const handleAnswer = (payload) => onAnswerRef.current?.(payload);
+    const handleIceCandidate = (payload) => onIceCandidateRef.current?.(payload);
+    const handleCallEnd = (payload) => onCallEndRef.current?.(payload);
 
     socket.on('new_bid', handleNewBid);
     socket.on('new_message', handleNewMessage);
     socket.on('typing', handleTyping);
+    socket.on('webrtc_offer', handleOffer);
+    socket.on('webrtc_answer', handleAnswer);
+    socket.on('webrtc_ice_candidate', handleIceCandidate);
+    socket.on('call_end', handleCallEnd);
 
     return () => {
       socket.off('new_bid', handleNewBid);
       socket.off('new_message', handleNewMessage);
       socket.off('typing', handleTyping);
+      socket.off('webrtc_offer', handleOffer);
+      socket.off('webrtc_answer', handleAnswer);
+      socket.off('webrtc_ice_candidate', handleIceCandidate);
+      socket.off('call_end', handleCallEnd);
       socketRef.current = null;
     };
   }, []);
@@ -111,6 +143,22 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping } = {}) 
     socketRef.current?.emit('typing_stop', payload);
   };
 
+  const emitOffer = (payload) => {
+    socketRef.current?.emit('webrtc_offer', payload);
+  };
+
+  const emitAnswer = (payload) => {
+    socketRef.current?.emit('webrtc_answer', payload);
+  };
+
+  const emitIceCandidate = (payload) => {
+    socketRef.current?.emit('webrtc_ice_candidate', payload);
+  };
+
+  const emitCallEnd = (payload) => {
+    socketRef.current?.emit('call_end', payload);
+  };
+
   return {
     socket: socketRef,
     connected,
@@ -120,6 +168,10 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping } = {}) 
     emitMessage,
     emitTypingStart,
     emitTypingStop,
+    emitOffer,
+    emitAnswer,
+    emitIceCandidate,
+    emitCallEnd,
   };
 }
 

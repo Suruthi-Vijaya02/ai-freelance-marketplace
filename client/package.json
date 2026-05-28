@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.7",
+    "acorn": "^8.16.0",
     "axios": "^1.16.1",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.16.0",

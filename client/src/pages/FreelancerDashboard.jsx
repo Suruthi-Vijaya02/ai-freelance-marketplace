@@ -3,33 +3,36 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  LayoutDashboard, Briefcase, MessageSquare, DollarSign, User,
-  Sparkles, TrendingUp, Clock, Star, ArrowRight,
+  Sparkles, TrendingUp, Clock, DollarSign, ArrowRight, FileText, AlertCircle,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
-import { useAuth } from '../context/AuthContext';
-import { projectService, paymentService } from '../services/authService';
+import MatchScoreBadge from '../components/ui/MatchScoreBadge';
+import useRole from '../hooks/useRole';
+import { projectService, paymentService, proposalService } from '../services/authService';
 import { formatCurrency, getApiErrorMessage } from '../utils/helpers';
 
 export default function FreelancerDashboard() {
-  const { user } = useAuth();
+  const { user, profileValidation } = useRole();
   const [projects, setProjects] = useState([]);
   const [earnings, setEarnings] = useState({ total: 0 });
+  const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const loadData = useCallback(async (signal) => {
     try {
-      const [projectsRes, earningsRes] = await Promise.all([
+      const [projectsRes, earningsRes, proposalsRes] = await Promise.all([
         projectService.getProjects({ status: 'open' }),
         paymentService.getMyEarnings().catch(() => ({ data: { total: 0 } })),
+        proposalService.getMyProposals().catch(() => ({ data: [] })),
       ]);
       if (!signal?.aborted) {
         setProjects(Array.isArray(projectsRes.data) ? projectsRes.data : []);
         setEarnings(earningsRes.data || { total: 0 });
+        setProposals(Array.isArray(proposalsRes.data) ? proposalsRes.data : []);
       }
     } catch (err) {
       if (!signal?.aborted) {
@@ -52,20 +55,49 @@ export default function FreelancerDashboard() {
 
   const matches = projects.slice(0, 5);
   const openProjects = projects.filter((p) => p.status === 'open');
-  const activeProjects = projects.filter((p) => p.status === 'in_progress');
+  const activeProposals = proposals.filter((p) => p.status === 'pending');
+  const avgMatch = matches.length
+    ? Math.round(matches.reduce((s, p) => s + (p.matchScore || 0), 0) / matches.length)
+    : 0;
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-black text-text">Freelancer Dashboard</h1>
-        <p className="text-muted mt-1 font-light">Your AI-powered workspace</p>
+        <p className="text-muted mt-1 font-light">Welcome back, {user?.name}</p>
       </div>
 
-      {error && (
-        <p className="text-sm text-error bg-error/10 border border-error/30 rounded-lg px-4 py-2">
-          {error}
-        </p>
+      {!profileValidation.isComplete && (
+        <div className="p-4 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+          <div>
+            <p className="font-medium text-text">Complete your profile to apply for projects</p>
+            <p className="text-sm text-muted mt-1">Missing: {profileValidation.missing.join(', ')}</p>
+            <Link to="/profile/edit" className="inline-block mt-2">
+              <Button size="sm">Complete Profile</Button>
+            </Link>
+          </div>
+        </div>
       )}
+
+      {error && (
+        <p className="text-sm text-error bg-error/10 border border-error/30 rounded-lg px-4 py-2">{error}</p>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Active Proposals', value: activeProposals.length, icon: FileText },
+          { label: 'Total Earnings', value: formatCurrency(earnings.total || 0), icon: DollarSign },
+          { label: 'Open Projects', value: openProjects.length, icon: TrendingUp },
+          { label: 'Avg Match Score', value: `${avgMatch}%`, icon: Sparkles },
+        ].map(({ label, value, icon: Icon }) => (
+          <Card key={label}>
+            <Icon className="w-6 h-6 text-primary mb-2" />
+            <p className="text-2xl font-black text-text">{value}</p>
+            <p className="text-sm text-muted font-light">{label}</p>
+          </Card>
+        ))}
+      </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
@@ -99,7 +131,7 @@ export default function FreelancerDashboard() {
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-4">
-                    <Badge color="primary">{m.matchScore ?? 0}% match</Badge>
+                    <MatchScoreBadge score={m.matchScore} />
                     <p className="text-sm font-medium text-secondary mt-2">{formatCurrency(m.budget)}</p>
                     <Link to={`/projects/${m._id}`}>
                       <Button size="sm" variant="ghost" className="mt-2">
@@ -118,80 +150,52 @@ export default function FreelancerDashboard() {
             <DollarSign className="w-5 h-5 text-secondary" />
             <h2 className="font-bold text-text">Earnings</h2>
           </div>
-          <p className="text-3xl font-black text-text">{formatCurrency(earnings.total || 0)}</p>
-          <p className="text-sm text-muted mt-1">Total released earnings</p>
-          <Link to={projects[0]?._id ? `/payments/${projects[0]._id}` : '#'}>
-            <Button variant="outline" size="sm" className="w-full mt-4">View Payments</Button>
-          </Link>
+          {loading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : earnings.total > 0 ? (
+            <>
+              <p className="text-3xl font-black text-text">{formatCurrency(earnings.total)}</p>
+              <p className="text-sm text-muted mt-1">Total released earnings</p>
+              <Link to="/earnings">
+                <Button variant="outline" size="sm" className="w-full mt-4">View Earnings</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="text-muted text-sm">No completed projects yet.</p>
+              <Link to="/projects" className="inline-block mt-4">
+                <Button size="sm">Browse Projects</Button>
+              </Link>
+            </>
+          )}
         </Card>
       </div>
 
       <Card>
-        <h2 className="font-bold text-text mb-4">Project Recommendations</h2>
-        {loading ? (
-          <div className="grid md:grid-cols-2 gap-4">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-          </div>
-        ) : openProjects.length === 0 ? (
-          <p className="text-muted text-sm">No open projects available right now.</p>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-4">
-            {openProjects.slice(0, 2).map((p) => (
-              <div key={p._id} className="p-4 rounded-lg bg-surface border border-border/60">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-medium text-text">{p.title}</h3>
-                  <Badge color="secondary">AI Pick</Badge>
-                </div>
-                <p className="text-sm text-muted mt-1 line-clamp-2 font-light">{p.description}</p>
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-sm text-secondary font-medium">{formatCurrency(p.budget)}</span>
-                  <Link to={`/projects/${p._id}`}>
-                    <Button size="sm">Apply</Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card>
-        <h2 className="font-bold text-text mb-4">Active Projects</h2>
+        <h2 className="font-bold text-text mb-4">Active Proposals</h2>
         {loading ? (
           <Skeleton className="h-24 w-full" />
-        ) : activeProjects.length === 0 ? (
-          <p className="text-muted text-sm">No active projects yet.</p>
+        ) : activeProposals.length === 0 ? (
+          <p className="text-muted text-sm">No pending proposals.</p>
         ) : (
-          <div className="space-y-4">
-            {activeProjects.map((p) => (
-              <div key={p._id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-lg bg-surface border border-border/60">
-                <div className="flex-1">
-                  <h3 className="font-medium text-text">{p.title}</h3>
-                  <p className="text-sm text-muted">{p.client?.name || 'Client'}</p>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-muted">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" /> {p.duration || 'In progress'}
-                    </span>
-                  </div>
+          <div className="space-y-3">
+            {activeProposals.slice(0, 3).map((p) => (
+              <div key={p._id} className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border/60">
+                <div>
+                  <p className="font-medium text-text">{p.project?.title}</p>
+                  <p className="text-sm text-muted flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> {p.timeline} · {formatCurrency(p.price)}
+                  </p>
                 </div>
-                <Link to="/workspace">
-                  <Button variant="outline" size="sm">Workspace</Button>
-                </Link>
+                <Badge color="warning">{p.status}</Badge>
               </div>
             ))}
+            <Link to="/my-proposals">
+              <Button variant="outline" size="sm">View All Proposals</Button>
+            </Link>
           </div>
         )}
       </Card>
     </div>
   );
 }
-
-export const freelancerSidebarLinks = [
-  { to: '/dashboard/freelancer', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/projects', label: 'Find Work', icon: Briefcase },
-  { to: '/bidding', label: 'Live Bidding', icon: Star },
-  { to: '/workspace', label: 'Messages', icon: MessageSquare },
-  { to: '/payments', label: 'Payments', icon: DollarSign },
-  { to: '/profile', label: 'Profile', icon: User },
-];

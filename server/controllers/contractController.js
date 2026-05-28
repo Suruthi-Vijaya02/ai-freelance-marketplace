@@ -1,5 +1,7 @@
 import Contract from '../models/Contract.js';
 import { generateBlockchainHash } from '../services/blockchainService.js';
+import Message from '../models/Message.js';
+import { buildConversationId } from './messageController.js';
 
 export async function createContract(req, res) {
   try {
@@ -15,6 +17,31 @@ export async function createContract(req, res) {
       blockchainHash,
       status: 'active',
     });
+
+    // Auto-create conversation between client and freelancer when contract created
+    try {
+      const convId = buildConversationId(req.user._id, freelancer);
+      const sysMsg = await Message.create({
+        conversationId: convId,
+        sender: req.user._id,
+        receiver: freelancer,
+        content: `Contract created for project ${project}`,
+      });
+      const io = req.app.get('io');
+      if (io) {
+        const populated = await sysMsg.populate('sender', 'name avatar');
+        io.to(`conversation:${convId}`).emit('new_message', {
+          id: populated._id,
+          conversationId: convId,
+          sender: populated.sender,
+          receiver: freelancer,
+          content: populated.content,
+          timestamp: populated.createdAt,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to auto-create conversation for contract:', e.message);
+    }
 
     return res.status(201).json(contract);
   } catch (err) {

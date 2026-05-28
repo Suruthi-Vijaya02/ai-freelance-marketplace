@@ -42,7 +42,7 @@ const chartTooltipStyle = {
 
 const PAGE_SIZE = 10;
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ section = 'overview' }) {
   const [stats, setStats] = useState(null);
   const [fraudAlerts, setFraudAlerts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -127,62 +127,74 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-black text-text">Admin Dashboard</h1>
+        <h1 className="text-2xl font-black text-text">
+          {section === 'overview' && 'Admin Dashboard'}
+          {section === 'users' && 'User Management'}
+          {section === 'projects' && 'Project Monitoring'}
+          {section === 'transactions' && 'Transaction Monitoring'}
+          {section === 'fraud' && 'Fraud Alerts'}
+          {section === 'disputes' && 'Dispute Resolution'}
+          {section === 'analytics' && 'Platform Analytics'}
+        </h1>
         <p className="text-muted mt-1 font-light">Platform overview and management</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Users', value: stats?.totalUsers?.toLocaleString() ?? '—', icon: Users, growth: stats?.userGrowth },
-          { label: 'Active Projects', value: stats?.activeProjects?.toLocaleString() ?? '—', icon: Briefcase, growth: stats?.projectGrowth },
-          { label: 'Total Revenue', value: formatCurrency(stats?.totalRevenue ?? 0), icon: DollarSign, growth: stats?.revenueGrowth },
-          { label: 'Fraud Alerts', value: stats?.fraudAlerts ?? 0, icon: AlertTriangle, growth: null },
-        ].map(({ label, value, icon: Icon, growth }) => (
-          <Card key={label}>
-            <div className="flex items-center justify-between">
-              <Icon className="w-8 h-8 text-primary opacity-80" />
-              {growth != null && <span className="text-xs text-primary">+{growth}%</span>}
-            </div>
-            <p className="text-2xl font-black text-text mt-3">{value}</p>
-            <p className="text-sm text-muted font-light">{label}</p>
-          </Card>
-        ))}
-      </div>
+      {(section === 'overview' || section === 'analytics') && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Users', value: stats?.totalUsers?.toLocaleString() ?? '—', icon: Users, growth: stats?.userGrowth },
+              { label: 'Active Projects', value: stats?.activeProjects?.toLocaleString() ?? '—', icon: Briefcase, growth: stats?.projectGrowth },
+              { label: 'Total Revenue', value: formatCurrency(stats?.totalRevenue ?? 0), icon: DollarSign, growth: stats?.revenueGrowth },
+              { label: 'Fraud Alerts', value: stats?.fraudAlerts ?? 0, icon: AlertTriangle, growth: null },
+            ].map(({ label, value, icon: Icon, growth }) => (
+              <Card key={label}>
+                <div className="flex items-center justify-between">
+                  <Icon className="w-8 h-8 text-primary opacity-80" />
+                  {growth != null && <span className="text-xs text-primary">+{growth}%</span>}
+                </div>
+                <p className="text-2xl font-black text-text mt-3">{value}</p>
+                <p className="text-sm text-muted font-light">{label}</p>
+              </Card>
+            ))}
+          </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <h2 className="font-bold text-text mb-4">Revenue Trend</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={revenueData}>
-              <defs>
-                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1DBF73" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#1DBF73" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#dbdbdb" />
-              <XAxis dataKey="month" stroke="#8FA1A7" fontSize={12} />
-              <YAxis stroke="#8FA1A7" fontSize={12} tickFormatter={(v) => `$${v / 1000}k`} />
-              <Tooltip {...chartTooltipStyle} />
-              <Area type="monotone" dataKey="revenue" stroke="#1DBF73" fill="url(#revenueGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
-        <Card>
-          <h2 className="font-bold text-text mb-4">User Growth</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={userGrowthData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#dbdbdb" />
-              <XAxis dataKey="month" stroke="#8FA1A7" fontSize={12} />
-              <YAxis stroke="#8FA1A7" fontSize={12} />
-              <Tooltip {...chartTooltipStyle} />
-              <Bar dataKey="users" fill="#4FE3C1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
+          <div className="grid lg:grid-cols-2 gap-6">
+            <Card>
+              <h2 className="font-bold text-text mb-4">Revenue Trend</h2>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={revenueData}>
+                  <defs>
+                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#1DBF73" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#1DBF73" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#dbdbdb" />
+                  <XAxis dataKey="month" stroke="#8FA1A7" fontSize={12} />
+                  <YAxis stroke="#8FA1A7" fontSize={12} tickFormatter={(v) => `$${v / 1000}k`} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Area type="monotone" dataKey="revenue" stroke="#1DBF73" fill="url(#revenueGrad)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Card>
+            <Card>
+              <h2 className="font-bold text-text mb-4">User Growth</h2>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={userGrowthData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#dbdbdb" />
+                  <XAxis dataKey="month" stroke="#8FA1A7" fontSize={12} />
+                  <YAxis stroke="#8FA1A7" fontSize={12} />
+                  <Tooltip {...chartTooltipStyle} />
+                  <Bar dataKey="users" fill="#4FE3C1" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+        </>
+      )}
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      {(section === 'overview' || section === 'fraud') && (
         <Card>
           <h2 className="font-bold text-text mb-4">Fraud Alerts</h2>
           {fraudAlerts.length === 0 ? (
@@ -218,7 +230,9 @@ export default function AdminDashboard() {
             </div>
           )}
         </Card>
+      )}
 
+      {(section === 'overview' || section === 'users') && (
         <Card>
           <h2 className="font-bold text-text mb-4">User Management</h2>
           {usersLoading ? (
@@ -293,9 +307,33 @@ export default function AdminDashboard() {
             </>
           )}
         </Card>
-      </div>
+      )}
 
-      {platformHealth && (
+      {section === 'projects' && (
+        <Card>
+          <h2 className="font-bold text-text mb-4">Project Monitoring</h2>
+          <p className="text-muted text-sm">
+            {stats?.activeProjects ?? 0} active projects on the platform. Use the overview dashboard for full stats.
+          </p>
+        </Card>
+      )}
+
+      {section === 'transactions' && (
+        <Card>
+          <h2 className="font-bold text-text mb-4">Transaction Monitoring</h2>
+          <p className="text-2xl font-black text-text">{formatCurrency(stats?.totalRevenue ?? 0)}</p>
+          <p className="text-sm text-muted mt-1">Total platform revenue</p>
+        </Card>
+      )}
+
+      {section === 'disputes' && (
+        <Card>
+          <h2 className="font-bold text-text mb-4">Dispute Resolution</h2>
+          <p className="text-muted text-sm">No open disputes at this time.</p>
+        </Card>
+      )}
+
+      {(section === 'overview') && platformHealth && (
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-5 h-5 text-secondary" />
@@ -319,7 +357,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-export const adminSidebarLinks = [
-  { to: '/admin', label: 'Overview', icon: Activity, end: true },
-];

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -125,9 +126,14 @@ export default function AdminDashboard({ section = 'overview' }) {
   }
 
   return (
-    <div className="space-y-8">
+    <motion.div 
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-12 font-body"
+    >
       <div>
-        <h1 className="text-2xl font-black text-text">
+        <h1 className="font-display">
           {section === 'overview' && 'Admin Dashboard'}
           {section === 'users' && 'User Management'}
           {section === 'projects' && 'Project Monitoring'}
@@ -136,7 +142,7 @@ export default function AdminDashboard({ section = 'overview' }) {
           {section === 'disputes' && 'Dispute Resolution'}
           {section === 'analytics' && 'Platform Analytics'}
         </h1>
-        <p className="text-muted mt-1 font-light">Platform overview and management</p>
+        <p className="text-mid mt-2 text-lg">Platform overview and management</p>
       </div>
 
       {(section === 'overview' || section === 'analytics') && (
@@ -147,21 +153,26 @@ export default function AdminDashboard({ section = 'overview' }) {
               { label: 'Active Projects', value: stats?.activeProjects?.toLocaleString() ?? '—', icon: Briefcase, growth: stats?.projectGrowth },
               { label: 'Total Revenue', value: formatCurrency(stats?.totalRevenue ?? 0), icon: DollarSign, growth: stats?.revenueGrowth },
               { label: 'Fraud Alerts', value: stats?.fraudAlerts ?? 0, icon: AlertTriangle, growth: null },
-            ].map(({ label, value, icon: Icon, growth }) => (
-              <Card key={label}>
+            ].map(({ label, value, icon: Icon, growth }, index) => (
+              <Card 
+                key={label}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.07, duration: 0.4 }}
+              >
                 <div className="flex items-center justify-between">
-                  <Icon className="w-8 h-8 text-primary opacity-80" />
-                  {growth != null && <span className="text-xs text-primary">+{growth}%</span>}
+                  <Icon className="w-8 h-8 text-accent opacity-80" />
+                  {growth != null && <span className="text-xs text-success font-bold">+{growth}%</span>}
                 </div>
-                <p className="text-2xl font-black text-text mt-3">{value}</p>
-                <p className="text-sm text-muted font-light">{label}</p>
+                <p className="font-display text-[clamp(32px,4vw,48px)] font-bold tracking-[-0.03em] text-btn-blue mt-4 mb-1">{value}</p>
+                <p className="text-[13px] text-mid font-medium">{label}</p>
               </Card>
             ))}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6">
             <Card>
-              <h2 className="font-bold text-text mb-4">Revenue Trend</h2>
+              <h3 className="card-title mb-6">Revenue Trend</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={revenueData}>
                   <defs>
@@ -179,7 +190,7 @@ export default function AdminDashboard({ section = 'overview' }) {
               </ResponsiveContainer>
             </Card>
             <Card>
-              <h2 className="font-bold text-text mb-4">User Growth</h2>
+              <h3 className="card-title mb-6">User Growth</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={userGrowthData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#dbdbdb" />
@@ -196,7 +207,7 @@ export default function AdminDashboard({ section = 'overview' }) {
 
       {(section === 'overview' || section === 'fraud') && (
         <Card>
-          <h2 className="font-bold text-text mb-4">Fraud Alerts</h2>
+          <h3 className="card-title mb-6">Fraud Alerts</h3>
           {fraudAlerts.length === 0 ? (
             <p className="text-muted text-sm">No fraud alerts.</p>
           ) : (
@@ -234,7 +245,7 @@ export default function AdminDashboard({ section = 'overview' }) {
 
       {(section === 'overview' || section === 'users') && (
         <Card>
-          <h2 className="font-bold text-text mb-4">User Management</h2>
+          <h3 className="card-title mb-6">User Management</h3>
           {usersLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (
@@ -311,7 +322,7 @@ export default function AdminDashboard({ section = 'overview' }) {
 
       {section === 'projects' && (
         <Card>
-          <h2 className="font-bold text-text mb-4">Project Monitoring</h2>
+          <h3 className="card-title mb-4">Project Monitoring</h3>
           <p className="text-muted text-sm">
             {stats?.activeProjects ?? 0} active projects on the platform. Use the overview dashboard for full stats.
           </p>
@@ -320,7 +331,7 @@ export default function AdminDashboard({ section = 'overview' }) {
 
       {section === 'transactions' && (
         <Card>
-          <h2 className="font-bold text-text mb-4">Transaction Monitoring</h2>
+          <h3 className="card-title mb-4">Transaction Monitoring</h3>
           <p className="text-2xl font-black text-text">{formatCurrency(stats?.totalRevenue ?? 0)}</p>
           <p className="text-sm text-muted mt-1">Total platform revenue</p>
         </Card>
@@ -328,7 +339,7 @@ export default function AdminDashboard({ section = 'overview' }) {
 
       {section === 'disputes' && (
         <Card>
-          <h2 className="font-bold text-text mb-4">Dispute Resolution</h2>
+          <h3 className="card-title mb-4">Dispute Resolution</h3>
           <p className="text-muted text-sm">No open disputes at this time.</p>
         </Card>
       )}
@@ -337,7 +348,7 @@ export default function AdminDashboard({ section = 'overview' }) {
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <Activity className="w-5 h-5 text-secondary" />
-            <h2 className="font-bold text-text">Platform Health</h2>
+            <h3 className="card-title">Platform Health</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
@@ -354,6 +365,6 @@ export default function AdminDashboard({ section = 'overview' }) {
           </div>
         </Card>
       )}
-    </div>
+    </motion.div>
   );
 }

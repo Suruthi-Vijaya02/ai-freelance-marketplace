@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Send, Paperclip, Video, X, Check, UserPlus, Search, RefreshCw } from 'lucide-react';
+import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import { useAuth } from '../context/AuthContext';
@@ -492,14 +493,17 @@ export default function MessagingPage() {
                 {convError && <p className="text-xs text-danger mt-2">Error: {convError}</p>}
               </div>
             ) : (
-              conversations.map((conv) => (
-                <button
+              conversations.map((conv, index) => (
+                <motion.button
                   key={conv.id}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.06 }}
                   type="button"
                   onClick={() => selectConversation(conv.id)}
                   className={cn(
-                    'w-full flex items-center gap-3 p-3 text-left hover:bg-surface transition-colors relative',
-                    activeConv === conv.id && 'bg-surface border-l-2 border-primary'
+                    'w-full flex items-center gap-3 p-3 text-left hover:bg-[rgba(255,255,255,0.5)] transition-colors relative border-l-[3px]',
+                    activeConv === conv.id ? 'bg-[rgba(61,71,212,0.10)] border-[var(--color-btn-blue)]' : 'border-transparent'
                   )}
                 >
                   <div className="relative">
@@ -516,14 +520,14 @@ export default function MessagingPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-text truncate">{conv.participant?.name}</span>
+                      <span className="font-semibold text-[var(--color-black)] truncate">{conv.participant?.name}</span>
                       {conv.lastMessageAt && (
-                        <span className="text-xs text-muted">{formatRelativeTime(conv.lastMessageAt)}</span>
+                        <span className="text-[11px] text-[var(--color-mid)] opacity-70">{formatRelativeTime(conv.lastMessageAt)}</span>
                       )}
                     </div>
-                    <p className="text-sm text-muted truncate">{conv.lastMessage || 'No messages yet'}</p>
+                    <p className="text-[13px] text-[var(--color-mid)] truncate">{conv.lastMessage || 'No messages yet'}</p>
                   </div>
-                </button>
+                </motion.button>
               ))
             )}
           </div>
@@ -534,7 +538,7 @@ export default function MessagingPage() {
           {activeConversation ? (
             <>
               {/* Chat Header */}
-              <div className="flex items-center justify-between p-4 border-b border-border bg-card">
+              <div className="flex items-center justify-between p-4 bg-[rgba(255,255,255,0.5)] backdrop-blur-[12px] border-b border-[var(--color-border)]">
                 <div className="flex items-center gap-3">
                   <img
                     src={activeConversation.participant?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeConversation.participant?.id}`}
@@ -542,15 +546,17 @@ export default function MessagingPage() {
                     className="w-10 h-10 rounded-full"
                   />
                   <div>
-                    <h3 className="font-semibold text-text">{activeConversation.participant?.name}</h3>
-                    <p className="text-xs text-muted flex items-center gap-2">
+                    <h3 className="font-semibold text-[16px] text-[var(--color-black)]">{activeConversation.participant?.name}</h3>
+                    <p className="text-[12px] flex items-center gap-2">
                       {connected && (
-                        <span className="inline-flex items-center gap-1 text-success">
-                          <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                        <span className="inline-flex items-center gap-1 text-[#22c55e]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
                           Live
                         </span>
                       )}
-                      {typingUser ? `${typingUser} is typing...` : connected ? 'Connected' : 'Reconnecting...'}
+                      <span className="text-[#22c55e]">
+                        {typingUser ? `${typingUser} is typing...` : connected ? 'Connected' : 'Reconnecting...'}
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -589,22 +595,25 @@ export default function MessagingPage() {
                   </div>
                 ) : (
                   messages.map((msg, idx) => (
-                    <div
+                    <motion.div
                       key={msg.id || idx}
+                      initial={{ opacity: 0, x: msg.senderId === 'me' ? 12 : -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
                       className={cn('flex', msg.senderId === 'me' ? 'justify-end' : 'justify-start')}
                     >
                       <div
                         className={cn(
-                          'max-w-[75%] px-4 py-2.5 rounded-2xl text-sm',
+                          'max-w-[75%] px-[16px] py-[12px] text-[15px] font-normal',
                           msg.senderId === 'me'
-                            ? 'bg-gradient-to-r from-secondary to-primary text-white rounded-br-md'
-                            : 'bg-card text-text rounded-bl-md border border-border'
+                            ? 'bg-[var(--color-btn-blue)] text-[#ffffff] rounded-[18px_18px_4px_18px]'
+                            : 'bg-[rgba(255,255,255,0.75)] border border-[rgba(206,200,232,0.6)] text-[var(--color-black)] rounded-[18px_18px_18px_4px]'
                         )}
                       >
                         <p>{msg.content}</p>
                         <div className={cn(
-                          'flex items-center gap-1 text-xs mt-1',
-                          msg.senderId === 'me' ? 'text-white/70' : 'text-muted'
+                          'flex items-center gap-1 text-[11px] mt-1 opacity-80',
+                          msg.senderId === 'me' ? 'text-white' : 'text-[var(--color-mid)]'
                         )}>
                           <span>{formatRelativeTime(msg.timestamp)}</span>
                           {msg.senderId === 'me' && (
@@ -612,15 +621,15 @@ export default function MessagingPage() {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
               {/* Input */}
-              <form onSubmit={sendMessage} className="p-4 border-t border-border bg-card">
-                <div className="flex gap-2">
+              <form onSubmit={sendMessage} className="p-4 border-t border-[var(--color-border)] bg-card">
+                <div className="flex gap-2 items-center">
                   <button type="button" className="p-2 text-muted hover:text-text transition-colors" aria-label="Attach" disabled>
                     <Paperclip className="w-5 h-5" />
                   </button>
@@ -632,11 +641,17 @@ export default function MessagingPage() {
                       handleTypingInput();
                     }}
                     placeholder="Type a message..."
-                    className="flex-1 px-4 py-2.5 bg-surface border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="flex-1 px-[20px] py-[14px] bg-[rgba(255,255,255,0.8)] border-[1.5px] border-[var(--color-border)] rounded-[24px] text-[var(--color-black)] placeholder-[var(--color-mid)] focus:outline-none focus:ring-2 focus:ring-[var(--color-btn-blue)]/40"
                   />
-                  <Button type="submit" disabled={!newMessage.trim()}>
+                  <motion.button
+                    type="submit"
+                    disabled={!newMessage.trim()}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.94 }}
+                    className="flex items-center justify-center w-[48px] h-[48px] bg-[var(--color-btn-blue)] text-white rounded-full disabled:opacity-50"
+                  >
                     <Send className="w-4 h-4" />
-                  </Button>
+                  </motion.button>
                 </div>
               </form>
 

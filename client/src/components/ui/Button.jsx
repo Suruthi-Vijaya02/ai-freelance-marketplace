@@ -1,21 +1,19 @@
+import { motion } from 'framer-motion';
 import { cn } from '../../utils/helpers';
 
 const variants = {
-  primary:
-    'bg-gradient-button hover:brightness-110 text-white font-semibold shadow-md shadow-primary/25 rounded-full',
-  secondary:
-    'bg-gradient-badge hover:brightness-110 text-white font-semibold rounded-full',
-  accent: 'bg-accent hover:brightness-110 text-white font-semibold rounded-full',
-  outline:
-    'border border-border hover:border-primary text-text hover:text-primary bg-surface rounded-full',
-  ghost: 'hover:bg-card text-muted hover:text-text rounded-full',
-  danger: 'bg-error hover:brightness-110 text-white rounded-full',
+  primary: 'bg-btn-blue hover:brightness-90 text-white font-semibold',
+  secondary: 'bg-btn-blue hover:brightness-90 text-white font-semibold',
+  accent: 'bg-accent hover:brightness-90 text-white font-semibold',
+  outline: 'border-[1.5px] border-black text-black hover:bg-black/5 bg-transparent',
+  ghost: 'hover:bg-white/40 text-black bg-transparent',
+  danger: 'bg-error hover:brightness-90 text-white font-semibold',
 };
 
 const sizes = {
   sm: 'px-4 py-1.5 text-sm',
-  md: 'px-5 py-2 text-sm',
-  lg: 'px-7 py-3 text-base',
+  md: 'px-6 py-2.5 text-base',
+  lg: 'px-8 py-3.5 text-lg',
 };
 
 export default function Button({
@@ -27,11 +25,13 @@ export default function Button({
   ...props
 }) {
   return (
-    <button
+    <motion.button
       type="button"
+      whileHover={!disabled ? { scale: 1.02 } : {}}
+      whileTap={!disabled ? { scale: 0.97 } : {}}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center justify-center gap-2 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-full font-body',
         variants[variant] || variants.primary,
         sizes[size],
         className
@@ -39,6 +39,6 @@ export default function Button({
       {...props}
     >
       {children}
-    </button>
+    </motion.button>
   );
 }

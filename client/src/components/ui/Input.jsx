@@ -1,20 +1,29 @@
+import { forwardRef } from 'react';
 import { cn } from '../../utils/helpers';
 
-export default function Input({ label, error, className, ...props }) {
+const Input = forwardRef(({ className, type = 'text', error, ...props }, ref) => {
   return (
-    <div className="space-y-1.5">
-      {label && (
-        <label className="block text-sm font-medium text-text">{label}</label>
-      )}
+    <div className="w-full">
       <input
+        type={type}
+        ref={ref}
         className={cn(
-          'w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors',
-          error && 'border-error focus:ring-error/40',
+          'w-full bg-white/60 border-[1.5px] border-border rounded-xl px-4 py-3 text-black font-body text-[15px]',
+          'transition-all duration-200 outline-none',
+          'focus:border-btn-blue focus:ring-[3px] focus:ring-[rgba(61,71,212,0.12)]',
+          'placeholder:text-mid/60',
+          'disabled:opacity-50 disabled:cursor-not-allowed',
+          error && 'border-error focus:border-error focus:ring-error/20',
           className
         )}
         {...props}
       />
-      {error && <p className="text-sm text-error">{error}</p>}
+      {error && (
+        <p className="mt-1.5 text-xs text-error font-medium">{error}</p>
+      )}
     </div>
   );
-}
+});
+
+Input.displayName = 'Input';
+export default Input;

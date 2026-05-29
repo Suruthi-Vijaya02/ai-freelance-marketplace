@@ -1,9 +1,12 @@
+import { motion } from 'framer-motion';
 import { cn } from '../../utils/helpers';
 
 export default function Skeleton({ className }) {
   return (
-    <div
-      className={cn('animate-pulse bg-[#1e2f38] rounded-lg', className)}
+    <motion.div
+      animate={{ opacity: [0.4, 0.8, 0.4] }}
+      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+      className={cn('bg-surface rounded-lg', className)}
       aria-hidden="true"
     />
   );

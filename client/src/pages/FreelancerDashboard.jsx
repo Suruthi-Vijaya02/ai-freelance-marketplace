@@ -61,10 +61,15 @@ export default function FreelancerDashboard() {
     : 0;
 
   return (
-    <div className="space-y-8">
+    <motion.div 
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-12 font-body"
+    >
       <div>
-        <h1 className="text-2xl font-black text-text">Freelancer Dashboard</h1>
-        <p className="text-muted mt-1 font-light">Welcome back, {user?.name}</p>
+        <h1 className="font-display">Freelancer Dashboard</h1>
+        <p className="text-mid mt-2 text-lg">Welcome back, {user?.name}</p>
       </div>
 
       {!profileValidation.isComplete && (
@@ -90,20 +95,25 @@ export default function FreelancerDashboard() {
           { label: 'Total Earnings', value: formatCurrency(earnings.total || 0), icon: DollarSign },
           { label: 'Open Projects', value: openProjects.length, icon: TrendingUp },
           { label: 'Avg Match Score', value: `${avgMatch}%`, icon: Sparkles },
-        ].map(({ label, value, icon: Icon }) => (
-          <Card key={label}>
-            <Icon className="w-6 h-6 text-primary mb-2" />
-            <p className="text-2xl font-black text-text">{value}</p>
-            <p className="text-sm text-muted font-light">{label}</p>
+        ].map(({ label, value, icon: Icon }, index) => (
+          <Card 
+            key={label}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.07, duration: 0.4 }}
+          >
+            <Icon className="w-[22px] h-[22px] text-accent mb-4" />
+            <p className="font-display text-[clamp(32px,4vw,48px)] font-bold tracking-[-0.03em] text-btn-blue mb-1">{value}</p>
+            <p className="text-[13px] text-mid font-medium">{label}</p>
           </Card>
         ))}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <h2 className="font-bold text-text">AI Match Feed</h2>
+          <div className="flex items-center gap-3 mb-6">
+            <Sparkles className="w-6 h-6 text-accent" />
+            <h3 className="card-title">AI Match Feed</h3>
           </div>
           {loading ? (
             <div className="space-y-4">
@@ -146,9 +156,9 @@ export default function FreelancerDashboard() {
         </Card>
 
         <Card>
-          <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="w-5 h-5 text-secondary" />
-            <h2 className="font-bold text-text">Earnings</h2>
+          <div className="flex items-center gap-3 mb-6">
+            <DollarSign className="w-6 h-6 text-accent2" />
+            <h3 className="card-title">Earnings</h3>
           </div>
           {loading ? (
             <Skeleton className="h-16 w-full" />
@@ -172,7 +182,7 @@ export default function FreelancerDashboard() {
       </div>
 
       <Card>
-        <h2 className="font-bold text-text mb-4">Active Proposals</h2>
+        <h3 className="card-title mb-4">Active Proposals</h3>
         {loading ? (
           <Skeleton className="h-24 w-full" />
         ) : activeProposals.length === 0 ? (
@@ -196,6 +206,6 @@ export default function FreelancerDashboard() {
           </div>
         )}
       </Card>
-    </div>
+    </motion.div>
   );
 }

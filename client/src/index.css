@@ -1,85 +1,113 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=General+Sans:wght@300;400;500;600&display=swap');
 @import 'tailwindcss';
 
 @theme {
-  --color-surface: #ffffff;
-  --color-card: #fafafa;
-  --color-primary: #e1306c;
-  --color-secondary: #833ab4;
-  --color-accent: #f77737;
-  --color-border: #dbdbdb;
-  --color-text: #262626;
-  --color-muted: #8e8e8e;
-  --color-success: #00d26a;
-  --color-error: #ed4956;
-  --font-sans: 'Poppins', system-ui, sans-serif;
-  --font-heading: 'Playfair Display', Georgia, serif;
+  --color-bg: #ede9f8;
+  --color-surface: #e4dff5;
+  --color-hero-from: #ddd6f3;
+  --color-hero-to: #c9bfee;
+  --color-black: #1a1560;
+  --color-accent: #ff4d1c;
+  --color-accent2: #3d5afe;
+  --color-mid: #6b64a8;
+  --color-border: #cec8e8;
+  --color-white: #ffffff;
+  --color-btn-blue: #3d47d4;
+  
+  --color-success: #22c55e;
+  --color-error: #ff4d1c;
+  --color-warning: #f59e0b;
+  
+  --font-display: 'Clash Display', sans-serif;
+  --font-body: 'General Sans', sans-serif;
 }
 
 :root {
-  --color-surface: #ffffff;
-  --color-card: #fafafa;
-  --color-primary: #e1306c;
-  --color-secondary: #833ab4;
-  --color-accent: #f77737;
-  --color-border: #dbdbdb;
-  --color-text: #262626;
-  --color-muted: #8e8e8e;
-  --color-success: #00d26a;
-  --color-error: #ed4956;
-  --gradient-primary: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
-  --gradient-button: linear-gradient(45deg, #833ab4, #e1306c);
-  --gradient-badge: linear-gradient(45deg, #f77737, #fcaf45);
+  --color-bg: #ede9f8;
+  --color-surface: #e4dff5;
+  --color-hero-from: #ddd6f3;
+  --color-hero-to: #c9bfee;
+  --color-black: #1a1560;
+  --color-accent: #ff4d1c;
+  --color-accent2: #3d5afe;
+  --color-mid: #6b64a8;
+  --color-border: #cec8e8;
+  --color-white: #ffffff;
+  --color-btn-blue: #3d47d4;
+  
+  --color-success: #22c55e;
+  --color-error: #ff4d1c;
+  --color-warning: #f59e0b;
+  
+  --font-display: 'Clash Display', sans-serif;
+  --font-body: 'General Sans', sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 
-html {
-  scroll-behavior: smooth;
-}
+  html {
+    scroll-behavior: smooth;
+  }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(160deg, #e8e2f8 0%, #d4ccf0 40%, #c8bfed 100%);
+    color: var(--color-black);
+    font-family: var(--font-body);
+    font-weight: 400;
+    line-height: 1.7;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-.font-heading {
-  font-family: var(--font-heading);
-}
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+    line-height: 0.92;
+    color: var(--color-black);
+  }
 
-#root {
-  min-height: 100vh;
-}
+  .font-body {
+    font-family: var(--font-body);
+  }
 
-.bg-gradient-primary {
-  background: var(--gradient-primary);
-}
+  h1 {
+    font-size: clamp(40px, 6vw, 96px);
+    font-weight: 800;
+  }
 
-.bg-gradient-button {
-  background: var(--gradient-button);
-}
+  h2 {
+    font-size: clamp(28px, 4vw, 64px);
+    font-weight: 800;
+  }
 
-.bg-gradient-badge {
-  background: var(--gradient-badge);
-}
+  h3 {
+    font-size: 24px;
+    font-weight: 700;
+  }
 
-.text-gradient-primary {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  #root {
+    min-height: 100vh;
+  }
+
+  .card-title {
+    font-family: var(--font-display);
+    font-size: clamp(18px, 2vw, 26px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--color-black);
+  }
 }
 
 ::-webkit-scrollbar {
@@ -88,14 +116,14 @@ h6,
 }
 
 ::-webkit-scrollbar-track {
-  background: #fafafa;
+  background: var(--color-bg);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #dbdbdb;
+  background: var(--color-border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8e8e8e;
+  background: var(--color-mid);
 }

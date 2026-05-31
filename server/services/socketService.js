@@ -36,6 +36,12 @@ export function initSocketHandlers(io) {
       socket.emit('joined_user', { userId });
     });
 
+    // Freelancers can join the freelancers room for broadcast notifications
+    socket.on('join_freelancers', () => {
+      socket.join('freelancers');
+      socket.emit('joined_freelancers');
+    });
+
     socket.on('join_conversation', (conversationId) => {
       if (!conversationId) return;
       const normalized = conversationId.startsWith('conv_')

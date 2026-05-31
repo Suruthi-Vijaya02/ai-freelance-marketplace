@@ -5,6 +5,14 @@ const milestoneSchema = new mongoose.Schema({
   amount: Number,
   status: { type: String, enum: ['pending', 'escrow', 'released'], default: 'pending' },
   dueDate: Date,
+  transaction: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
+  transactionId: String,
+});
+
+const deliverableSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  completed: { type: Boolean, default: false },
 });
 
 const projectSchema = new mongoose.Schema(
@@ -26,6 +34,13 @@ const projectSchema = new mongoose.Schema(
     proposalsCount: { type: Number, default: 0 },
     biddingEnabled: { type: Boolean, default: false },
     hiredFreelancer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    acceptedProposal: { type: mongoose.Schema.Types.ObjectId, ref: 'Proposal' },
+    deliverables: [deliverableSchema],
+    startDate: Date,
+    endDate: Date,
+    completedAt: Date,
+    totalSpent: { type: Number, default: 0 },
+    visibility: { type: String, enum: ['public', 'private'], default: 'public' },
   },
   { timestamps: true }
 );

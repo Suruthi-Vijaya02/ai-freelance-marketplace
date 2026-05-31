@@ -18,11 +18,10 @@ const interviewSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-interviewSchema.pre('validate', function assignRoomId(next) {
+interviewSchema.pre('validate', function assignRoomId() {
   if (!this.roomId) {
     this.roomId = `int_${crypto.randomBytes(12).toString('hex')}`;
   }
-  next();
 });
 
 export default mongoose.model('Interview', interviewSchema);

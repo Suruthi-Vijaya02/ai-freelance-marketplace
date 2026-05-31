@@ -2,40 +2,37 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import {
-  PlusCircle, Users, Sparkles, FolderKanban, DollarSign, UserCheck, AlertCircle,
-} from 'lucide-react';
-import Card from '../components/ui/Card';
+import { PlusCircle, ChevronLeft } from 'lucide-react';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import MatchScoreBadge from '../components/ui/MatchScoreBadge';
-import { projectService, proposalService, paymentService } from '../services/authService';
+import { projectService, proposalService, interviewService } from '../services/authService';
 import { formatCurrency, mapProposalToBid, getApiErrorMessage } from '../utils/helpers';
+import ClientHero from '../assets/img5.png';
 
 export default function ClientDashboard() {
   const [projects, setProjects] = useState([]);
-  const [matches, setMatches] = useState([]);
   const [proposals, setProposals] = useState([]);
-  const [totalSpent, setTotalSpent] = useState(0);
+  const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const activeProject = projects[0];
   const activeProjectId = activeProject?._id || activeProject?.id;
-  const activeProjects = projects.filter((p) => p.status === 'in_progress' || p.status === 'open');
-  const hiredCount = projects.filter((p) => p.status === 'in_progress').length;
+  const upcomingInterviews = interviews.filter((i) => 
+    ['scheduled', 'accepted'].includes(i.status) && new Date(i.scheduledTime) > new Date()
+  ).sort((a, b) => new Date(a.scheduledTime) - new Date(b.scheduledTime));
 
   const loadProjects = useCallback(async (signal) => {
     try {
-      const [projectsRes, txRes] = await Promise.all([
+      const [projectsRes, interviewsRes] = await Promise.all([
         projectService.getMyProjects(),
-        paymentService.getTransactions().catch(() => ({ data: [] })),
+        interviewService.getMyInterviews().catch(() => ({ data: [] })),
       ]);
       if (!signal?.aborted) {
         setProjects(Array.isArray(projectsRes.data) ? projectsRes.data : []);
-        const released = (txRes.data || []).filter((t) => t.status === 'released');
-        setTotalSpent(released.reduce((s, t) => s + (t.amount || 0), 0));
+        setInterviews(Array.isArray(interviewsRes.data) ? interviewsRes.data : []);
       }
     } catch (err) {
       if (!signal?.aborted) {
@@ -46,19 +43,65 @@ export default function ClientDashboard() {
   }, []);
 
   const loadMatchesAndProposals = useCallback(async (projectId, signal) => {
-    if (!projectId) { setMatches([]); setProposals([]); return; }
+    if (!projectId) { setProposals([]); return; }
     try {
-      const [projectRes, proposalsRes] = await Promise.all([
-        projectService.getProject(projectId),
-        proposalService.getProposalsByProject(projectId),
-      ]);
+      const proposalsRes = await proposalService.getProposalsByProject(projectId);
       if (signal?.aborted) return;
-      setMatches(projectRes.data?.aiMatches || []);
       setProposals((proposalsRes.data || []).map(mapProposalToBid));
     } catch (err) {
       if (!signal?.aborted) toast.error(getApiErrorMessage(err));
     }
   }, []);
+
+  // Precompute contents to avoid nested ternaries
+  let projectsContent;
+  if (loading) projectsContent = <Skeleton className="h-20" />;
+  else if (projects.length === 0) projectsContent = <p className="text-muted">No projects yet. Create a project to start receiving proposals.</p>;
+  else projectsContent = projects.map((p) => (
+    <Link
+      key={p._id}
+      to={`/projects/${p._id}`}
+      className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border/40"
+    >
+      <div>
+        <p className="font-medium text-text">{p.title}</p>
+        <p className="text-sm text-muted">{p.shortDescription || ''}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge color={p.status === 'open' ? 'success' : 'warning'}>{p.status}</Badge>
+        <span className="text-sm text-muted">{formatCurrency(p.budget)}</span>
+      </div>
+    </Link>
+  ));
+
+  let proposalsContent;
+  if (loading) proposalsContent = <Skeleton className="h-20" />;
+  else if (proposals.length === 0) proposalsContent = <p className="text-muted">No proposals yet.</p>;
+  else proposalsContent = proposals.slice(0,4).map((p) => (
+    <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border/50">
+      <div className="flex items-center gap-2">
+        <img src={p.avatar} alt="" className="w-8 h-8 rounded-full" />
+        <div>
+          <p className="text-text text-sm font-medium">{p.freelancerName}</p>
+          <p className="text-xs text-muted">{formatCurrency(p.price)} · {p.timeline}</p>
+        </div>
+      </div>
+      <MatchScoreBadge score={p.matchScore} />
+    </div>
+  ));
+
+  let interviewsContent;
+  if (loading) interviewsContent = <Skeleton className="h-20" />;
+  else if (upcomingInterviews.length === 0) interviewsContent = <p className="text-muted">No interviews scheduled.</p>;
+  else interviewsContent = upcomingInterviews.slice(0,4).map((iv) => (
+    <div key={iv._id} className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border/60">
+      <div>
+        <p className="font-medium text-text">{iv.freelancerId?.name || 'Interview'}</p>
+        <p className="text-sm text-muted">{new Date(iv.scheduledTime).toLocaleString()}</p>
+      </div>
+      <Badge color={iv.status === 'accepted' ? 'success' : 'warning'}>{iv.status}</Badge>
+    </div>
+  ));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -76,162 +119,92 @@ export default function ClientDashboard() {
     return () => controller.abort();
   }, [activeProjectId, loadMatchesAndProposals]);
 
-  const pendingProposals = proposals.filter((p) => p.status === 'pending').length;
+  // pendingProposals not used in editorial layout
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="space-y-12 font-body"
+      className="space-y-10 font-body"
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display">Client Dashboard</h1>
-          <p className="text-mid mt-2 text-lg">Manage projects and hire top talent</p>
+      {/* Hero */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <div className="lg:col-span-7 space-y-4">
+          <h1 className="font-display text-4xl">Hiring Command Center</h1>
+          <p className="text-mid max-w-2xl">Oversee open projects, review proposals, and move top talent through interviews to signed contracts. This is your executive view for hiring.</p>
+          <div className="flex items-center gap-3 mt-6">
+            <Link to="/projects">
+              <Button variant="outline" size="sm"><ChevronLeft className="w-4 h-4" /> Back to Browse</Button>
+            </Link>
+            <Link to="/create-project">
+              <Button><PlusCircle className="w-4 h-4" /> Create Project</Button>
+            </Link>
+            <Link to="/talent">
+              <Button variant="outline">Browse Talent</Button>
+            </Link>
+          </div>
         </div>
-        <Link to="/create-project">
-          <Button><PlusCircle className="w-4 h-4" /> Create Project</Button>
-        </Link>
-      </div>
 
-      <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/30 flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-secondary shrink-0" />
-        <p className="text-sm text-muted">
-          Add a payment method to post projects. Escrow payments are held securely until milestone approval.
-        </p>
-      </div>
+        <div className="lg:col-span-5 flex justify-end">
+          <motion.img
+            src={ClientHero}
+            alt="Client hero"
+            className="w-full max-w-[520px] rounded-3xl shadow-2xl"
+            initial={{ y: 14, opacity: 0, scale: 0.98, rotate: 1 }}
+            whileInView={{ y: [0, -8, 0], rotate: [1, -1, 1], scale: [1, 1.03, 1], opacity: 1 }}
+            whileHover={{ scale: 1.04, rotate: 0, y: -6 }}
+            viewport={{ once: false, amount: 0.6 }}
+            transition={{ duration: 8, repeat: Infinity, ease: [0.22, 1, 0.36, 1] }}
+          />
+        </div>
+      </section>
 
       {error && (
         <p className="text-sm text-error bg-error/10 border border-error/30 rounded-lg px-4 py-2">{error}</p>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Active Projects', value: activeProjects.length, icon: FolderKanban },
-          { label: 'Total Spent', value: formatCurrency(totalSpent), icon: DollarSign },
-          { label: 'Pending Proposals', value: pendingProposals, icon: Users },
-          { label: 'Hired Freelancers', value: hiredCount, icon: UserCheck },
-        ].map(({ label, value, icon: Icon }, index) => (
-          <Card 
-            key={label}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.07, duration: 0.4 }}
-          >
-            <Icon className="w-[22px] h-[22px] text-accent mb-4" />
-            <p className="font-display text-[clamp(32px,4vw,48px)] font-bold tracking-[-0.03em] text-btn-blue mb-1">{value}</p>
-            <p className="text-[13px] text-mid font-medium">{label}</p>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-8">
-        <Card>
-          <div className="flex items-center gap-3 mb-6">
-            <Users className="w-6 h-6 text-accent2" />
-            <h3 className="card-title">AI Freelancer Matches</h3>
-          </div>
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+      {/* Editorial sections */}
+      <section className="grid grid-cols-1 lg:grid-cols-8 gap-6">
+        <div className="lg:col-span-5 space-y-6">
+          <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/10 shadow-lg">
+            <h3 className="card-title">Open Projects</h3>
+            <p className="text-sm text-muted mt-2">Projects you're actively hiring for.</p>
+            <div className="mt-4 space-y-3">
+              {projectsContent}
             </div>
-          ) : !activeProjectId ? (
-            <div className="text-center py-6">
-              <p className="text-muted text-sm">Post a project to see AI-matched freelancers.</p>
-              <Link to="/create-project" className="inline-block mt-3">
-                <Button size="sm">Create Project</Button>
-              </Link>
-            </div>
-          ) : matches.length === 0 ? (
-            <p className="text-muted text-sm">No freelancer matches yet for this project.</p>
-          ) : (
-            <div className="space-y-4">
-              {matches.slice(0, 4).map((f) => (
-                <motion.div
-                  key={f._id || f.id}
-                  whileHover={{ scale: 1.01 }}
-                  className="flex items-center gap-4 p-3 rounded-lg bg-surface border border-border/50"
-                >
-                  <img
-                    src={f.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.name}`}
-                    alt=""
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-text truncate">{f.name}</h3>
-                    <p className="text-sm text-muted truncate">{f.title}</p>
-                  </div>
-                  <MatchScoreBadge score={f.matchScore} />
-                  <Link to={`/profile/${f._id || f.id}`}>
-                    <Button size="sm" variant="outline">View</Button>
-                  </Link>
-                </motion.div>
-              ))}
-              <Link to="/talent">
-                <Button variant="outline" size="sm" className="w-full">Browse Talent</Button>
-              </Link>
-            </div>
-          )}
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-3 mb-6">
-            <Sparkles className="w-6 h-6 text-accent" />
-            <h3 className="card-title">
-              Proposals{activeProject ? ` — ${activeProject.title}` : ''}
-            </h3>
           </div>
-          {loading ? (
-            <Skeleton className="h-40 w-full" />
-          ) : !activeProjectId ? (
-            <p className="text-muted text-sm">No projects yet.</p>
-          ) : proposals.length === 0 ? (
-            <p className="text-muted text-sm">No proposals yet for this project.</p>
-          ) : (
-            <>
-              <div className="space-y-3">
-                {proposals.slice(0, 4).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border/50">
-                    <div className="flex items-center gap-2">
-                      <img src={p.avatar} alt="" className="w-8 h-8 rounded-full" />
-                      <div>
-                        <p className="text-text text-sm font-medium">{p.freelancerName}</p>
-                        <p className="text-xs text-muted">{formatCurrency(p.price)} · {p.timeline}</p>
-                      </div>
-                    </div>
-                    <MatchScoreBadge score={p.matchScore} />
-                  </div>
-                ))}
-              </div>
-              <Link to={`/bidding/${activeProjectId}`} className="inline-block mt-4">
-                <Button variant="outline" size="sm">Manage Proposals</Button>
-              </Link>
-            </>
-          )}
-        </Card>
-      </div>
 
-      {projects.length > 0 && (
-        <Card>
-          <h3 className="card-title mb-6">Your Projects</h3>
-          <div className="space-y-3">
-            {projects.map((p) => (
-              <Link
-                key={p._id}
-                to={`/projects/${p._id}`}
-                className="flex items-center justify-between p-3 rounded-lg bg-surface border border-transparent hover:border-primary/30 transition-colors"
-              >
-                <span className="font-medium text-text">{p.title}</span>
-                <div className="flex items-center gap-2">
-                  <Badge color={p.status === 'open' ? 'success' : 'warning'}>{p.status}</Badge>
-                  <span className="text-sm text-muted">{formatCurrency(p.budget)}</span>
-                </div>
-              </Link>
-            ))}
+          <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/10 shadow-lg">
+            <h3 className="card-title">Proposal Review</h3>
+            <p className="text-sm text-muted mt-2">A curated list of proposals needing your attention.</p>
+            <div className="mt-4 space-y-3">
+              {proposalsContent}
+            </div>
           </div>
-        </Card>
-      )}
+        </div>
+
+        <aside className="lg:col-span-3 space-y-6">
+          <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/10 shadow-lg">
+            <h3 className="card-title">Interview Pipeline</h3>
+            <div className="mt-3 space-y-3">
+              {interviewsContent}
+            </div>
+            <Link to="/interviews" className="block mt-4">
+              <Button variant="outline" size="sm">Manage interviews</Button>
+            </Link>
+          </div>
+
+          <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/10 shadow-lg">
+            <h3 className="card-title">Contract Workflow</h3>
+            <p className="text-sm text-muted mt-2">Draft, send, and sign contracts directly from your workspace.</p>
+            <div className="mt-4 space-y-2">
+              <Link to="/contracts" className="block p-3 rounded-lg bg-surface border border-border/60">View contracts</Link>
+              <Link to="/payments" className="block p-3 rounded-lg bg-surface border border-border/60">Payments & escrow</Link>
+            </div>
+          </div>
+        </aside>
+      </section>
     </motion.div>
   );
 }

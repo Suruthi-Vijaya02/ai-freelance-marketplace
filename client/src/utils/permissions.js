@@ -28,7 +28,8 @@ export function hasRole(user, ...roles) {
 }
 
 export function isFreelancer(user) {
-  return hasRole(user, ROLES.FREELANCER);
+  // Support legacy role mapping: developer => freelancer
+  return hasRole(user, ROLES.FREELANCER) || user?.role === 'developer';
 }
 
 export function isClient(user) {

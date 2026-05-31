@@ -48,6 +48,14 @@ const userSchema = new mongoose.Schema(
       hiringPreference: { type: String, enum: ['hourly', 'fixed', 'both'], default: 'both' },
       hiringHistory: String,
     },
+    resumeUrl: String,
+    resumeText: String,
+    aiSuggestions: {
+      skills: [String],
+      bio: String,
+      experienceKeywords: [String],
+      generatedAt: Date,
+    },
   },
   { timestamps: true }
 );

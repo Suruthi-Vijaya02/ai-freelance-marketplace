@@ -95,6 +95,16 @@ export const interviewService = {
   updateStatus: (id, body) => api.patch(`/interviews/${id}/status`, body),
 };
 
+// Contract services
+export const contractService = {
+  getMyContracts: () => api.get('/contracts/my'),
+  getById: (id) => api.get(`/contracts/${id}`),
+  create: (data) => api.post('/contracts', data),
+  sign: (id) => api.patch(`/contracts/${id}/sign`),
+  markCompleted: (id) => api.patch(`/contracts/${id}/complete`),
+  updateDispatchStatus: (id, status) => api.patch(`/contracts/${id}/dispatch`, { dispatchStatus: status }),
+};
+
 // Message services
 export const messageService = {
   getConversations: () => api.get('/messages/conversations'),
@@ -124,6 +134,10 @@ export const userService = {
   getReviews: (id) => api.get(`/users/${id}/reviews`),
   updateProfile: (data) => api.put('/users/profile', data),
   updateAvailability: (id, data) => api.put(`/users/${id}/availability`, data),
+  uploadResume: (formData) =>
+    api.post('/users/uploadResume', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  getAiSuggestions: () => api.get('/users/ai-suggestions'),
+  applyAiSuggestions: (data) => api.post('/users/ai-suggestions/apply', data),
 };
 
 // Notification services

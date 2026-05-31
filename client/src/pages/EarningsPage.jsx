@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DollarSign, TrendingUp, Briefcase } from 'lucide-react';
@@ -8,6 +9,8 @@ import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import { paymentService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
+import PaymentsHero from '../assets/img6.png';
+import { fadeInUp, floatHero, heroReveal, pageFade } from '../utils/motionVariants';
 
 export default function EarningsPage() {
   const [earnings, setEarnings] = useState({ total: 0, count: 0, transactions: [] });
@@ -47,14 +50,30 @@ export default function EarningsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-black text-text">Earnings & Payouts</h1>
-        <p className="text-muted mt-1 font-light">Track your released payments and request payouts</p>
-      </div>
+    <motion.div initial="hidden" animate="visible" variants={pageFade} className="space-y-8">
+      <motion.section variants={heroReveal} className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-6 items-center rounded-[2rem] bg-white/80 border border-white/20 p-6 shadow-2xl overflow-hidden">
+        <div className="space-y-4 max-w-xl">
+          <h1 className="text-3xl font-black text-text">Earnings & Payouts</h1>
+          <p className="text-mid mt-1 max-w-2xl">Track your released payments, request payouts, and keep your freelance revenue flowing smoothly.</p>
+          <div className="flex flex-wrap gap-3 mt-5">
+            <Link to="/payments"><Button>View Payments</Button></Link>
+            <Link to="/projects"><Button variant="outline">Browse Projects</Button></Link>
+          </div>
+        </div>
+        <motion.div variants={fadeInUp} className="flex justify-center">
+          <motion.img
+            src={PaymentsHero}
+            alt="Earnings workflow"
+            className="w-full max-w-[520px] rounded-[2rem] shadow-2xl border border-white/20"
+            variants={floatHero}
+          />
+        </motion.div>
+      </motion.section>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
+      <div className="text-muted mt-1 font-light">Track your released payments and request payouts</div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="flex flex-col gap-4 p-6">
           <DollarSign className="w-8 h-8 text-secondary mb-3" />
           <p className="text-3xl font-black text-text">{formatCurrency(earnings.total || 0)}</p>
           <p className="text-sm text-muted mt-1">Total earned</p>
@@ -137,6 +156,6 @@ export default function EarningsPage() {
           </Card>
         </>
       )}
-    </div>
+    </motion.div>
   );
 }

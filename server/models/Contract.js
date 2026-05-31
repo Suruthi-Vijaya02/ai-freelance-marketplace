@@ -11,6 +11,11 @@ const contractSchema = new mongoose.Schema(
     clientSignature: { signed: Boolean, signedAt: Date },
     freelancerSignature: { signed: Boolean, signedAt: Date },
     status: { type: String, enum: ['draft', 'active', 'completed'], default: 'draft' },
+    contractTemplateId: String,
+    escrowId: String,
+    isCompleted: { type: Boolean, default: false },
+    completedAt: Date,
+    dispatchStatus: { type: String, enum: ['pending', 'sent', 'delivered'], default: 'pending' },
   },
   { timestamps: true }
 );

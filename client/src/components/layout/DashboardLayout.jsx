@@ -10,7 +10,6 @@ import {
   ArrowUpRight, Shield, Lock, Repeat2
 } from 'lucide-react';
 import Navbar from './Navbar';
-import Sidebar from './Sidebar';
 import useRole from '../../hooks/useRole';
 import Skeleton from '../ui/Skeleton';
 import BackgroundTicker from '../ui/BackgroundTicker';
@@ -31,7 +30,7 @@ const SIDEBAR_TITLES = {
 };
 
 export default function DashboardLayout() {
-  const { navItems, role, loading } = useRole();
+  const { loading } = useRole();
 
   const ICON_CONFIG = useMemo(() => 
     ICONS.map((Icon, i) => ({
@@ -61,7 +60,7 @@ export default function DashboardLayout() {
       <div className="fixed inset-0 w-full h-full z-0 pointer-events-none overflow-hidden">
         {ICON_CONFIG.map(({ icon: Icon, top, left, size, duration, delay, rotateAmt, yAmt }, i) => (
           <motion.div
-            key={i}
+            key={`${Icon.name || Icon.displayName || 'icon'}-${i}`}
             style={{
               position: 'absolute',
               top,
@@ -165,12 +164,9 @@ export default function DashboardLayout() {
       {/* Main Content */}
       <div className="relative z-10 flex flex-col flex-1 h-full">
         <Navbar />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar links={navItems} title={SIDEBAR_TITLES[role] || 'Dashboard'} />
-          <main className="flex-1 p-6 md:p-12 overflow-auto relative">
-            <Outlet />
-          </main>
-        </div>
+        <main className="flex-1 p-6 md:p-12 overflow-auto relative max-w-7xl mx-auto w-full">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

@@ -135,10 +135,10 @@ export async function getMessages(req, res) {
       .populate('sender', 'name avatar')
       .populate('receiver', 'name avatar');
 
-    // Mark messages as read
+    // Mark messages as read and set readAt
     await Message.updateMany(
       { conversationId: { $in: conversationIds }, receiver: new mongoose.Types.ObjectId(userId), read: false },
-      { $set: { read: true } }
+      { $set: { read: true, readAt: new Date() } }
     );
 
     res.json(messages);
@@ -167,7 +167,8 @@ export async function sendMessage(req, res) {
       sender: senderId,
       receiver,
       content: content.trim(),
-      read: false
+      read: false,
+      messageType: req.body.messageType || 'text',
     });
 
     await message.save();
@@ -177,6 +178,9 @@ export async function sendMessage(req, res) {
     // Emit real-time notification
     const io = req.app.get('io');
     if (io) {
+      const deliveredAt = new Date();
+      await Message.findByIdAndUpdate(message._id, { $set: { deliveredAt } });
+
       emitConversationMessage(io, convId, {
         _id: message._id,
         id: message._id.toString(),
@@ -184,9 +188,11 @@ export async function sendMessage(req, res) {
         sender: message.sender,
         receiver: message.receiver,
         content: message.content,
+        messageType: message.messageType,
         createdAt: message.createdAt,
         timestamp: message.createdAt,
         read: message.read,
+        deliveredAt,
       });
 
       // Notify receiver if not in conversation
@@ -257,4 +263,83 @@ export async function createConversation(req, res) {
 export function getOtherUserId(conversationId, currentUserId) {
   const [id1, id2] = conversationId.split('_');
   return id1 === currentUserId.toString() ? id2 : id1;
+}
+
+// Edit an existing message
+export async function editMessage(req, res) {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id || req.user.id;
+
+    if (!content?.trim()) {
+      return res.status(400).json({ message: 'Content is required' });
+    }
+
+    const message = await Message.findById(id);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+    if (message.sender.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'Not authorized to edit this message' });
+    }
+
+    message.content = content.trim();
+    message.edited = { isEdited: true, editedAt: new Date() };
+    await message.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      emitConversationMessage(io, message.conversationId, {
+        type: 'message_edited',
+        messageId: message._id,
+        content: message.content,
+        edited: message.edited,
+      });
+    }
+
+    return res.json(message);
+  } catch (err) {
+    console.error('editMessage error:', err);
+    return res.status(500).json({ message: 'Failed to edit message', error: err.message });
+  }
+}
+
+// Add or remove a reaction on a message
+export async function addReaction(req, res) {
+  try {
+    const { id } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user._id || req.user.id;
+
+    if (!emoji) return res.status(400).json({ message: 'Emoji is required' });
+
+    const message = await Message.findById(id);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === userId.toString() && r.emoji === emoji
+    );
+
+    if (existingIndex !== -1) {
+      // Toggle off: remove existing same emoji reaction from this user
+      message.reactions.splice(existingIndex, 1);
+    } else {
+      message.reactions.push({ emoji, userId });
+    }
+
+    await message.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      emitConversationMessage(io, message.conversationId, {
+        type: 'reaction_updated',
+        messageId: message._id,
+        reactions: message.reactions,
+      });
+    }
+
+    return res.json(message);
+  } catch (err) {
+    console.error('addReaction error:', err);
+    return res.status(500).json({ message: 'Failed to add reaction', error: err.message });
+  }
 }

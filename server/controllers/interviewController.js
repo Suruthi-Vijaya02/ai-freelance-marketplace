@@ -34,11 +34,23 @@ export async function scheduleInterview(req, res) {
 
     const io = req.app.get('io');
     if (io) {
+      // Emit to freelancer's user room
       io.to(`user:${freelancerId}`).emit('notification', {
         type: 'interview_scheduled',
         title: 'Interview Scheduled',
         message: `${req.user.name} scheduled an interview with you`,
         data: { interviewId: interview._id, roomId: interview.roomId },
+      });
+      
+      // Also emit to all freelancers room for broader notification
+      io.to('freelancers').emit('interview_notification', {
+        type: 'interview_scheduled',
+        interviewId: interview._id,
+        freelancerId,
+        clientId: req.user._id,
+        clientName: req.user.name,
+        projectId: projectId,
+        scheduledTime,
       });
     }
 

@@ -39,3 +39,6 @@ export function parseResumeText(text = '') {
     summary: text.slice(0, 200) || 'AI-parsed profile summary',
   };
 }
+
+// Re-export AI resume enrichment functions from the dedicated service
+export { parseAndEnrichResume, autoSuggestSkills, autoGenerateBio, extractExperienceKeywords } from './resumeParserService.js';

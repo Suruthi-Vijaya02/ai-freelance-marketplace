@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Star, MapPin, Clock, Save, AlertCircle, Building2 } from 'lucide-react';
+import { Star, MapPin, Clock, Save, AlertCircle, Building2, Upload, FileText, Sparkles, Check, X } from 'lucide-react';
 import HireMeModal from '../components/interview/HireMeModal';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -37,6 +37,10 @@ export default function ProfilePage() {
   const [updatingAvailability, setUpdatingAvailability] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [showHireModal, setShowHireModal] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [applyingAi, setApplyingAi] = useState(false);
+  const resumeInputRef = useRef(null);
 
   const profileId = id || authUser?._id || authUser?.id;
   const navigate = useNavigate();
@@ -84,6 +88,15 @@ export default function ProfilePage() {
     return () => controller.abort();
   }, [loadProfile]);
 
+  // Load AI suggestions if viewing own freelancer profile
+  useEffect(() => {
+    if (isOwnProfile && profile?.role === 'freelancer') {
+      userService.getAiSuggestions()
+        .then(({ data }) => { if (data?.generatedAt) setAiSuggestions(data); })
+        .catch(() => {});
+    }
+  }, [isOwnProfile, profile?.role]);
+
   const handleAvailabilityChange = async (status) => {
     if (!isOwnProfile) return;
     setUpdatingAvailability(true);
@@ -96,6 +109,51 @@ export default function ProfilePage() {
       toast.error(getApiErrorMessage(err));
     } finally {
       setUpdatingAvailability(false);
+    }
+  };
+
+  const handleResumeUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['application/pdf', 'text/plain'];
+    if (!allowed.includes(file.type)) {
+      toast.error('Only PDF or TXT resume files are accepted');
+      return;
+    }
+    setResumeUploading(true);
+    try {
+      const form = new FormData();
+      form.append('resume', file);
+      const { data } = await userService.uploadResume(form);
+      setAiSuggestions(data.aiSuggestions || null);
+      if (data.user) setProfile(data.user);
+      toast.success('Resume uploaded! AI suggestions are ready.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setResumeUploading(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = '';
+    }
+  };
+
+  const handleApplySuggestions = async ({ acceptSkills, acceptBio }) => {
+    setApplyingAi(true);
+    try {
+      const { data } = await userService.applyAiSuggestions({ acceptSkills, acceptBio });
+      if (data.user) {
+        setProfile(data.user);
+        if (authUser) login(data.user, localStorage.getItem('svr_token'));
+        setEditForm((prev) => ({
+          ...prev,
+          skills: (data.user.skills || []).join(', '),
+          bio: data.user.bio || prev.bio,
+        }));
+      }
+      toast.success('AI suggestions applied!');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setApplyingAi(false);
     }
   };
 
@@ -372,6 +430,105 @@ export default function ProfilePage() {
           <Button className="mt-4" onClick={handleSave} disabled={saving}>
             <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Changes'}
           </Button>
+
+          {/* Resume Upload */}
+          <div className="mt-6 pt-5 border-t border-border">
+            <p className="text-sm font-medium text-text mb-2 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" /> Upload Resume for AI Enrichment
+            </p>
+            <p className="text-xs text-muted mb-3">Upload a PDF or TXT resume — AI will suggest skills and a bio.</p>
+            <input
+              ref={resumeInputRef}
+              type="file"
+              accept=".pdf,.txt"
+              className="hidden"
+              id="resume-upload-input"
+              onChange={handleResumeUpload}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={resumeUploading}
+              onClick={() => resumeInputRef.current?.click()}
+            >
+              <Upload className="w-4 h-4" />
+              {resumeUploading ? 'Uploading...' : (profile?.resumeUrl ? 'Re-upload Resume' : 'Upload Resume')}
+            </Button>
+            {profile?.resumeUrl && !resumeUploading && (
+              <p className="text-xs text-muted mt-2 flex items-center gap-1">
+                <Check className="w-3 h-3 text-success" /> Resume on file
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* AI Suggestions Panel — shown when suggestions exist and own freelancer profile */}
+      {isOwnProfile && isProfileFreelancer && aiSuggestions?.generatedAt && (
+        <Card className="border border-primary/30 bg-primary/5">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-text">AI Profile Suggestions</h2>
+            <span className="text-xs text-muted ml-auto">
+              Generated {new Date(aiSuggestions.generatedAt).toLocaleDateString()}
+            </span>
+          </div>
+
+          {aiSuggestions.skills?.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm font-medium text-text mb-2">Suggested Skills</p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {aiSuggestions.skills.map((s) => (
+                  <span key={s} className="px-2 py-1 rounded-full text-xs bg-primary/15 text-primary border border-primary/25">{s}</span>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={applyingAi}
+                onClick={() => handleApplySuggestions({ acceptSkills: true, acceptBio: false })}
+              >
+                <Check className="w-3 h-3" /> Accept Skills
+              </Button>
+            </div>
+          )}
+
+          {aiSuggestions.bio && (
+            <div className="mb-4">
+              <p className="text-sm font-medium text-text mb-2">AI-Generated Bio</p>
+              <p className="text-sm text-muted italic leading-relaxed bg-surface rounded-lg p-3 border border-border">
+                &ldquo;{aiSuggestions.bio}&rdquo;
+              </p>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  size="sm"
+                  disabled={applyingAi}
+                  onClick={() => handleApplySuggestions({ acceptSkills: false, acceptBio: true })}
+                >
+                  <Check className="w-3 h-3" /> Use this Bio
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={applyingAi}
+                  onClick={() => handleApplySuggestions({ acceptSkills: true, acceptBio: true })}
+                >
+                  <Sparkles className="w-3 h-3" /> Apply All
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {aiSuggestions.experienceKeywords?.length > 0 && (
+            <div>
+              <p className="text-sm font-medium text-text mb-2">Detected Experience Signals</p>
+              <div className="flex flex-wrap gap-2">
+                {aiSuggestions.experienceKeywords.map((kw) => (
+                  <span key={kw} className="px-2 py-0.5 rounded text-xs bg-secondary/10 text-secondary">{kw}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

@@ -6,6 +6,8 @@ import {
   getHiredProjects,
   getProjectById,
   getProjectMatches,
+  updateProjectLifecycle,
+  updateProjectTotalSpent,
 } from '../controllers/projectController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { optionalAuthMiddleware } from '../middleware/optionalAuthMiddleware.js';
@@ -21,5 +23,7 @@ router.get('/hired', authMiddleware, roleMiddleware('freelancer'), getHiredProje
 router.get('/:id', validateObjectId(), getProjectById);
 router.get('/:id/matches', validateObjectId(), getProjectMatches);
 router.post('/', authMiddleware, roleMiddleware('client', 'admin'), fraudDetectionMiddleware, createProject);
+router.patch('/:id/lifecycle', authMiddleware, validateObjectId(), updateProjectLifecycle);
+router.patch('/:id/total-spent', authMiddleware, validateObjectId(), updateProjectTotalSpent);
 
 export default router;

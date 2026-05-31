@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import Review from '../models/Review.js';
-import { parseResumeText } from '../services/aiMatchingService.js';
+import { parseResumeText, parseAndEnrichResume } from '../services/aiMatchingService.js';
+import { extractTextFromFile } from '../services/resumeExtractorService.js';
 
 export async function getProfile(req, res) {
   try {
@@ -142,6 +143,94 @@ export async function getUserReviews(req, res) {
     }));
     return res.json(mapped);
   } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+
+// Upload resume file, extract text, run AI parser, store results
+export async function uploadResume(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No resume file uploaded' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Extract text from the uploaded file
+    const resumeText = await extractTextFromFile(req.file.path);
+
+    // Run AI enrichment pipeline
+    const { skills, experienceKeywords, bio } = parseAndEnrichResume(resumeText);
+
+    // Persist file path, extracted text, and AI suggestions
+    user.resumeUrl = req.file.path;
+    user.resumeText = resumeText;
+    user.aiSuggestions = {
+      skills,
+      bio,
+      experienceKeywords,
+      generatedAt: new Date(),
+    };
+
+    await user.save();
+
+    const saved = await User.findById(user._id).select('-password');
+    return res.json({
+      message: 'Resume uploaded and parsed successfully',
+      resumeUrl: user.resumeUrl,
+      aiSuggestions: user.aiSuggestions,
+      user: saved,
+    });
+  } catch (err) {
+    console.error('uploadResume error:', err);
+    return res.status(500).json({ message: err.message });
+  }
+}
+
+// Return stored AI suggestions for the logged-in user
+export async function getAiSuggestions(req, res) {
+  try {
+    const user = await User.findById(req.user._id).select('aiSuggestions resumeUrl');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return res.json(user.aiSuggestions || {});
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+
+// Apply or reject AI suggestions — user decides which fields to accept
+export async function applyAiSuggestions(req, res) {
+  try {
+    const { acceptSkills, acceptBio } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.aiSuggestions?.generatedAt) {
+      return res.status(400).json({ message: 'No AI suggestions available. Upload a resume first.' });
+    }
+
+    if (acceptSkills === true && user.aiSuggestions.skills?.length) {
+      const merged = [...new Set([...(user.skills || []), ...user.aiSuggestions.skills])];
+      user.skills = merged;
+      if (!user.freelancerProfile) user.freelancerProfile = {};
+      user.freelancerProfile.skills = merged;
+    }
+
+    if (acceptBio === true && user.aiSuggestions.bio) {
+      user.bio = user.aiSuggestions.bio;
+      if (!user.freelancerProfile) user.freelancerProfile = {};
+      user.freelancerProfile.bio = user.aiSuggestions.bio;
+    }
+
+    user.syncRoleProfile();
+    await user.save();
+
+    const saved = await User.findById(user._id).select('-password');
+    return res.json({ message: 'AI suggestions applied', user: saved });
+  } catch (err) {
+    console.error('applyAiSuggestions error:', err);
     return res.status(500).json({ message: err.message });
   }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -8,6 +9,8 @@ import Skeleton from '../components/ui/Skeleton';
 import { interviewService } from '../services/authService';
 import useRole from '../hooks/useRole';
 import { getApiErrorMessage } from '../utils/helpers';
+import InterviewHero from '../assets/img3.png';
+import { fadeInUp, floatHero, heroReveal, pageFade } from '../utils/motionVariants';
 
 const statusColors = {
   scheduled: 'warning',
@@ -56,7 +59,27 @@ export default function MyInterviewsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <motion.div initial="hidden" animate="visible" variants={pageFade} className="space-y-10">
+      <motion.section variants={heroReveal} className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-6 items-center rounded-[2rem] bg-white/80 border border-white/20 p-6 shadow-2xl overflow-hidden">
+        <div className="space-y-4 max-w-xl">
+          <Badge color="secondary">Interviews</Badge>
+          <h1 className="font-display text-4xl">Prepare for your next conversation.</h1>
+          <p className="text-mid max-w-2xl">See upcoming interviews, confirm availability, and keep your hiring rhythm smooth with a dedicated interview workspace.</p>
+          <div className="flex flex-wrap gap-3 mt-5">
+            <Link to="/contracts"><Button>Review Contracts</Button></Link>
+            <Link to="/messages"><Button variant="outline">Open Messages</Button></Link>
+          </div>
+        </div>
+        <motion.div variants={fadeInUp} className="flex justify-center">
+          <motion.img
+            src={InterviewHero}
+            alt="Interview workflow"
+            className="w-full max-w-[520px] rounded-[2rem] shadow-2xl border border-white/20"
+            variants={floatHero}
+          />
+        </motion.div>
+      </motion.section>
+
       <div>
         <h1 className="text-2xl font-black text-text">My Interviews</h1>
         <p className="text-muted mt-1 font-light">Scheduled video interviews with talent</p>
@@ -97,6 +120,6 @@ export default function MyInterviewsPage() {
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

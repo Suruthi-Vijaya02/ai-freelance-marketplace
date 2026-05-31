@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CreditCard, Lock } from 'lucide-react';
 import Card from '../components/ui/Card';
@@ -9,6 +10,8 @@ import Skeleton from '../components/ui/Skeleton';
 import useRole from '../hooks/useRole';
 import { paymentService, projectService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
+import PaymentsHero from '../assets/img6.png';
+import { fadeInUp, floatHero, heroReveal, pageFade } from '../utils/motionVariants';
 
 const statusColors = {
   released: 'success',
@@ -57,17 +60,34 @@ export default function PaymentsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-black text-text">
-          {isClient ? 'Escrow & Payments' : 'Payment History'}
-        </h1>
-        <p className="text-muted mt-1 font-light">
-          {isClient
-            ? 'Manage milestone funding and release payments to freelancers'
-            : 'View payments received from completed milestones'}
-        </p>
-      </div>
+    <motion.div initial="hidden" animate="visible" variants={pageFade} className="space-y-8">
+      <motion.section variants={heroReveal} className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-6 items-center rounded-[2rem] bg-white/80 border border-white/20 p-6 shadow-2xl overflow-hidden">
+        <div className="space-y-4 max-w-xl">
+          <h1 className="text-3xl font-black text-text">{isClient ? 'Escrow & Payments' : 'Payment History'}</h1>
+          <p className="text-mid mt-1 max-w-2xl">A calm payments workflow for releasing escrow, tracking milestone funding, and reviewing transaction history.</p>
+          <div className="flex flex-wrap gap-3 mt-5">
+            <Link to="/contracts"><Button>Contract Workflow</Button></Link>
+            <Link to="/projects"><Button variant="outline">Browse Projects</Button></Link>
+          </div>
+        </div>
+        <motion.div variants={fadeInUp} className="flex justify-center">
+          <motion.img
+            src={PaymentsHero}
+            alt="Payments workflow"
+            className="w-full max-w-[520px] rounded-[2rem] shadow-2xl border border-white/20"
+            variants={floatHero}
+          />
+        </motion.div>
+      </motion.section>
+
+      <div className="space-y-8">
+        <div>
+          <p className="text-muted mt-1 font-light">
+            {isClient
+              ? 'Manage milestone funding and release payments to freelancers'
+              : 'View payments received from completed milestones'}
+          </p>
+        </div>
 
       {isClient && projects.length > 0 && (
         <Card>
@@ -139,6 +159,7 @@ export default function PaymentsPage() {
           </div>
         )}
       </Card>
-    </div>
+      </div>
+    </motion.div>
   );
 }

@@ -21,6 +21,7 @@ import ClientOnboarding from './pages/onboarding/ClientOnboarding';
 import PaymentPage from './pages/PaymentPage';
 import PaymentsPage from './pages/PaymentsPage';
 import EarningsPage from './pages/EarningsPage';
+import ContractsPage from './pages/ContractsPage';
 import MyProposalsPage from './pages/MyProposalsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import InterviewRoom from './pages/InterviewRoom';
@@ -76,6 +77,7 @@ export default function App() {
               <Route path="/my-proposals" element={<FreelancerOnly><MyProposalsPage /></FreelancerOnly>} />
               <Route path="/earnings" element={<FreelancerOnly><EarningsPage /></FreelancerOnly>} />
               <Route path="/payments" element={<RoleGuard roles={['client', 'freelancer', 'admin']}><PaymentsPage /></RoleGuard>} />
+              <Route path="/contracts" element={<ProtectedRoute><ContractsPage /></ProtectedRoute>} />
               <Route path="/create-project" element={<ClientOnly><CreateProjectPage /></ClientOnly>} />
               <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
               <Route path="/talent" element={<ProtectedRoute roles={['client', 'admin']}><TalentPage /></ProtectedRoute>} />

@@ -203,6 +203,8 @@ export async function updateProposalStatus(req, res) {
       await Project.findByIdAndUpdate(project._id, {
         status: 'in_progress',
         hiredFreelancer: proposal.freelancer,
+        acceptedProposal: proposal._id,
+        startDate: new Date(),
       });
       await Proposal.updateMany(
         { project: project._id, _id: { $ne: proposal._id } },

@@ -1,3 +1,4 @@
+// Routes for Users
 import { Router } from 'express';
 import {
   getProfile,
@@ -15,6 +16,7 @@ import { optionalAuthMiddleware } from '../middleware/optionalAuthMiddleware.js'
 import { validateObjectId } from '../utils/validateObjectId.js';
 import { resumeUpload } from '../middleware/uploadMiddleware.js';
 
+// User routes — profile management, resume parsing, and freelancer discovery
 const router = Router();
 
 router.get('/profile', authMiddleware, getProfile);

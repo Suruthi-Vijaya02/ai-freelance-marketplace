@@ -71,13 +71,27 @@ export default function Navbar() {
 
           {/* Center nav - workspace routes */}
           <div className="hidden md:flex items-center gap-6 mx-auto">
-            {[
+            {(user?.role === 'admin' ? [
+              { to: '/admin', label: 'Dashboard' },
+              { to: '/admin/users', label: 'Users' },
+              { to: '/admin/projects', label: 'Projects' },
+              { to: '/admin/transactions', label: 'Payments' },
+              { to: '/profile/edit', label: 'Settings' },
+            ] : user?.role === 'client' ? [
+              { to: '/dashboard/client', label: 'Workspace' },
+              { to: '/dashboard/client/talents', label: 'Talents' },
+              { to: '/dashboard/client/interviews', label: 'Interviews' },
+              { to: '/dashboard/client/contracts', label: 'Contracts' },
+              { to: '/dashboard/client/proposals', label: 'Proposals' },
+              { to: '/dashboard/client/messages', label: 'Messages' },
+            ] : [
               { to: dashboardPath, label: 'Workspace' },
               { to: '/projects', label: 'Browse' },
               { to: '/interviews', label: 'Interviews' },
               { to: '/contracts', label: 'Contracts' },
+              { to: '/my-proposals', label: 'Proposals' },
               { to: '/messages', label: 'Messages' },
-            ].map((link) => {
+            ]).map((link) => {
               const active = location.pathname.startsWith(link.to);
               return (
                 <Link key={link.to} to={link.to} className="relative">

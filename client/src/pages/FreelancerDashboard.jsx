@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -18,6 +19,7 @@ export default function FreelancerDashboard() {
   const [proposals, setProposals] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [interviews, setInterviews] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,6 +53,12 @@ export default function FreelancerDashboard() {
     })();
     return () => controller.abort();
   }, [loadData]);
+
+  useEffect(() => { 
+    api.get('/notifications').then((res) => { 
+      if (res.data.success) setNotifications(res.data.notifications); 
+    }).catch(() => {}); 
+  }, []); 
 
   const activeProposals = proposals.filter((p) => p.status === 'pending');
   const activeContracts = contracts.filter((c) => c.status === 'active');
@@ -166,6 +174,20 @@ export default function FreelancerDashboard() {
       {error && (
         <p className="text-sm text-error bg-error/10 border border-error/30 rounded-lg px-4 py-2">{error}</p>
       )}
+
+      {notifications.length > 0 && ( 
+        <div className="rounded-2xl p-6 bg-white/60 backdrop-blur-sm border border-white/10 shadow-lg mb-8"> 
+          <h3 className="card-title">Notifications</h3> 
+          <div className="mt-4 space-y-3"> 
+            {notifications.slice(0, 5).map((n) => ( 
+              <div key={n._id} className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border/60"> 
+                <p className="text-sm text-text">{n.message}</p> 
+                <span className="text-xs text-muted">{new Date(n.createdAt).toLocaleDateString()}</span> 
+              </div> 
+            ))} 
+          </div> 
+        </div> 
+      )} 
 
       {/* Editorial sections - asymmetrical layout */}
       <section className="grid grid-cols-1 lg:grid-cols-8 gap-6">

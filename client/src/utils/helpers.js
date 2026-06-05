@@ -1,5 +1,7 @@
 export function formatCurrency(amount, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  const val = Number(amount);
+  if (isNaN(val)) return '—';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(val);
 }
 
 export function formatDate(dateStr) {

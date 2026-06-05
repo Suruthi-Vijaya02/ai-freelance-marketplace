@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+/** Verifies the JWT token in the request headers and attaches the user to the request object. */
 export async function authMiddleware(req, res, next) {
   try {
     const header = req.headers.authorization;

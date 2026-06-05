@@ -1,3 +1,4 @@
+// Routes for Projects
 import { Router } from 'express';
 import {
   createProject,
@@ -15,6 +16,7 @@ import { roleMiddleware } from '../middleware/roleMiddleware.js';
 import { fraudDetectionMiddleware } from '../middleware/fraudDetectionMiddleware.js';
 import { validateObjectId } from '../utils/validateObjectId.js';
 
+// Project routes — job posting, browsing, and matching
 const router = Router();
 
 router.get('/', optionalAuthMiddleware, getProjects);

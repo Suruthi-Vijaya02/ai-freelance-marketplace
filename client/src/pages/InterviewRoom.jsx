@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import useRole from '../hooks/useRole';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Video, PhoneOff } from 'lucide-react';
+import { ArrowLeft, Video, PhoneOff, Zap, Shield } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
@@ -63,7 +63,11 @@ export default function InterviewRoom() {
   useEffect(() => {
     const load = async () => {
       try {
+        setLoading(true);
         const { data } = await interviewService.getById(id);
+        if (!data) {
+          throw new Error('Interview not found');
+        }
         setInterview(data);
         conversationIdRef.current = normalizeConversationId(data.conversationId);
         joinInterview(data.roomId);
@@ -75,7 +79,8 @@ export default function InterviewRoom() {
           senderId: (m.sender?._id || m.sender)?.toString(),
         })));
       } catch (err) {
-        toast.error(getApiErrorMessage(err));
+        console.error('Interview load error:', err);
+        setInterview(null);
       } finally {
         setLoading(false);
       }
@@ -117,10 +122,15 @@ export default function InterviewRoom() {
   const sendChat = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !interview) return;
-    const otherId =
-      interview.clientId._id?.toString() === userId?.toString()
-        ? interview.freelancerId._id
-        : interview.clientId._id;
+    const client = interview.clientId?._id || interview.clientId;
+    const freelancer = interview.freelancerId?._id || interview.freelancerId;
+    
+    if (!client || !freelancer) {
+      toast.error('Participants not found');
+      return;
+    }
+
+    const otherId = client.toString() === userId?.toString() ? freelancer : client;
     try {
       await messageService.sendMessage({
         conversationId: conversationIdRef.current,
@@ -138,20 +148,28 @@ export default function InterviewRoom() {
   }
 
   if (!interview) {
-    return <div className="p-8 text-center text-muted">Interview not found</div>;
+    return (
+      <div className="p-8 text-center space-y-4">
+        <h2 className="text-xl font-bold text-text">Interview details not available.</h2>
+        <p className="text-muted">The interview might have been cancelled or does not exist.</p>
+        <Link to={dashboardPath}>
+          <Button variant="outline"><ArrowLeft className="w-4 h-4 mr-2" /> Go Back</Button>
+        </Link>
+      </div>
+    );
   }
 
-  const canJoin = new Date(interview.scheduledTime) <= new Date(Date.now() + 15 * 60 * 1000);
+  const canJoin = interview?.scheduledTime ? new Date(interview.scheduledTime) <= new Date(Date.now() + 15 * 60 * 1000) : false;
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
-      <Link to={dashboardPath} className="inline-flex items-center gap-2 text-sm text-muted hover:text-primary">
+      <Link to={dashboardPath || '/'} className="inline-flex items-center gap-2 text-sm text-muted hover:text-primary">
         <ArrowLeft className="w-4 h-4" /> Back
       </Link>
       <div>
         <h1 className="text-2xl font-black text-text">Interview Room</h1>
         <p className="text-muted text-sm mt-1">
-          {new Date(interview.scheduledTime).toLocaleString()} · {interview.status}
+          {interview?.scheduledTime ? new Date(interview.scheduledTime).toLocaleString() : 'Date TBD'} · {interview?.status || 'Scheduled'}
         </p>
       </div>
 
@@ -198,6 +216,30 @@ export default function InterviewRoom() {
           </form>
         </Card>
       </div>
+
+      <Card className="mt-8 bg-amber-50/30 border-amber-100 overflow-hidden relative">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 rounded-2xl bg-amber-100 text-amber-700">
+            <Zap className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-text">Collaborative Code Editor</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Planned Feature</span>
+            </div>
+          </div>
+        </div>
+        <p className="text-sm text-muted leading-relaxed max-w-3xl">
+          A real-time collaborative code editor for technical interviews. Planned implementation: 
+          Monaco Editor as the UI layer, Yjs (CRDT) for conflict-free concurrent editing, 
+          and Socket.IO to sync document changes between both participants live.
+        </p>
+        <div className="mt-6 pt-6 border-t border-amber-100/50 flex items-center gap-2 text-xs text-amber-800 font-medium">
+          <Shield className="w-4 h-4" />
+          Monaco Editor + Yjs + Socket.IO — implementation planned post-review
+        </div>
+      </Card>
     </div>
   );
 }

@@ -1,12 +1,20 @@
 import { forwardRef } from 'react';
 import { cn } from '../../utils/helpers';
 
-const Input = forwardRef(({ className, type = 'text', error, ...props }, ref) => {
+const Input = forwardRef(({ className, type = 'text', label, error, id, ...props }, ref) => {
+  const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  
   return (
     <div className="w-full">
+      {label && (
+        <label htmlFor={inputId} className="block text-sm font-medium text-text mb-1.5 ml-1">
+          {label}
+        </label>
+      )}
       <input
         type={type}
         ref={ref}
+        id={inputId}
         className={cn(
           'w-full bg-white/60 border-[1.5px] border-border rounded-xl px-4 py-3 text-black font-body text-[15px]',
           'transition-all duration-200 outline-none',

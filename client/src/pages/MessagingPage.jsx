@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Send, Paperclip, Video, X, Check, UserPlus, Search, RefreshCw } from 'lucide-react';
+import { Send, Paperclip, Video, X, Check, UserPlus, Search, RefreshCw, Briefcase } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import { useAuth } from '../context/AuthContext';
-import { messageService, userService } from '../services/authService';
+import { messageService, userService, contractService } from '../services/authService';
 import { useSocket } from '../hooks/useSocket';
 import { formatRelativeTime, cn, getApiErrorMessage, normalizeConversationId } from '../utils/helpers';
 
@@ -39,6 +39,10 @@ export default function MessagingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  
+  // Contracts list to associate contract badges
+  const [contractsList, setContractsList] = useState([]);
+
   const typingTimeoutRef = useRef(null);
   const activeConvRef = useRef(activeConv);
   const messagesEndRef = useRef(null);
@@ -56,6 +60,10 @@ export default function MessagingPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const buildConversationId = (u1, u2) => {
+    return [u1.toString(), u2.toString()].sort((a, b) => a.localeCompare(b)).join('_');
+  };
 
   const handleNewMessage = useCallback(
     (msg) => {
@@ -221,6 +229,26 @@ export default function MessagingPage() {
       navigate(`/messages/${normalizedParamConvId}`, { replace: true });
     }
   }, [paramConvId, normalizedParamConvId, navigate]);
+
+  // Load contracts to match threads with contracts
+  useEffect(() => {
+    const loadContracts = async () => {
+      try {
+        const { data } = await contractService.getMyContracts();
+        setContractsList(data || []);
+      } catch (err) {
+        console.warn('Failed to load contracts in messages:', err);
+      }
+    };
+    if (isAuthenticated) loadContracts();
+  }, [isAuthenticated]);
+
+  const activeContract = contractsList.find((c) => {
+    const cid = c.client?._id || c.client;
+    const fid = c.freelancer?._id || c.freelancer;
+    if (!cid || !fid) return false;
+    return buildConversationId(cid, fid) === activeConv;
+  });
 
   useEffect(() => {
     if (localVideoRef.current) {
@@ -391,7 +419,6 @@ export default function MessagingPage() {
     loadConversations(c.signal);
   };
 
-  // Search users to start new conversation
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
@@ -411,7 +438,6 @@ export default function MessagingPage() {
       setShowNewChat(false);
       setSearchQuery('');
       setSearchResults([]);
-      // Reload conversations and select new one
       await loadConversations();
       selectConversation(data.id);
     } catch (err) {
@@ -420,7 +446,7 @@ export default function MessagingPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col bg-surface">
+    <div className="h-[calc(100vh-64px)] flex flex-col bg-surface font-body">
       <div className="flex-1 flex max-w-7xl mx-auto w-full">
         {/* Conversations Sidebar */}
         <aside className="w-80 border-r border-border bg-card hidden md:flex flex-col">
@@ -493,48 +519,62 @@ export default function MessagingPage() {
                 {convError && <p className="text-xs text-danger mt-2">Error: {convError}</p>}
               </div>
             ) : (
-              conversations.map((conv, index) => (
-                <motion.button
-                  key={conv.id}
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.06 }}
-                  type="button"
-                  onClick={() => selectConversation(conv.id)}
-                  className={cn(
-                    'w-full flex items-center gap-3 p-3 text-left hover:bg-[rgba(255,255,255,0.5)] transition-colors relative border-l-[3px]',
-                    activeConv === conv.id ? 'bg-[rgba(61,71,212,0.10)] border-[var(--color-btn-blue)]' : 'border-transparent'
-                  )}
-                >
-                  <div className="relative">
-                    <img
-                      src={conv.participant?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.participant?.id}`}
-                      alt=""
-                      className="w-10 h-10 rounded-full"
-                    />
-                    {conv.unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center">
-                        {conv.unreadCount}
-                      </span>
+              conversations.map((conv, index) => {
+                // Check if this conversation is a contract thread
+                const isContractThread = contractsList.some(
+                  c => buildConversationId(c.client?._id || c.client, c.freelancer?._id || c.freelancer) === conv.id
+                );
+
+                return (
+                  <motion.button
+                    key={conv.id}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.06 }}
+                    type="button"
+                    onClick={() => selectConversation(conv.id)}
+                    className={cn(
+                      'w-full flex items-center gap-3 p-3 text-left hover:bg-[rgba(255,255,255,0.5)] transition-colors relative border-l-[3px]',
+                      activeConv === conv.id ? 'bg-[rgba(61,71,212,0.10)] border-[var(--color-btn-blue)]' : 'border-transparent'
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[var(--color-black)] truncate">{conv.participant?.name}</span>
-                      {conv.lastMessageAt && (
-                        <span className="text-[11px] text-[var(--color-mid)] opacity-70">{formatRelativeTime(conv.lastMessageAt)}</span>
+                  >
+                    <div className="relative">
+                      <img
+                        src={conv.participant?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${conv.participant?.id}`}
+                        alt=""
+                        className="w-10 h-10 rounded-full"
+                      />
+                      {conv.unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-xs rounded-full flex items-center justify-center">
+                          {conv.unreadCount}
+                        </span>
                       )}
                     </div>
-                    <p className="text-[13px] text-[var(--color-mid)] truncate">{conv.lastMessage || 'No messages yet'}</p>
-                  </div>
-                </motion.button>
-              ))
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-[var(--color-black)] truncate flex items-center gap-1">
+                          {conv.participant?.name}
+                          {isContractThread && <Briefcase className="w-3.5 h-3.5 text-indigo-700 inline" />}
+                        </span>
+                        {conv.lastMessageAt && (
+                          <span className="text-[11px] text-[var(--color-mid)] opacity-70">{formatRelativeTime(conv.lastMessageAt)}</span>
+                        )}
+                      </div>
+                      <p className="text-[13px] text-[var(--color-mid)] truncate">
+                        {conv.lastMessage?.startsWith('[SYSTEM]') 
+                          ? conv.lastMessage.replace('[SYSTEM]', '').trim() 
+                          : conv.lastMessage || 'No messages yet'}
+                      </p>
+                    </div>
+                  </motion.button>
+                );
+              })
             )}
           </div>
         </aside>
 
         {/* Chat Area */}
-        <main className="flex-1 flex flex-col min-w-0">
+        <main className="flex-1 flex flex-col min-w-0 bg-white">
           {activeConversation ? (
             <>
               {/* Chat Header */}
@@ -546,7 +586,14 @@ export default function MessagingPage() {
                     className="w-10 h-10 rounded-full"
                   />
                   <div>
-                    <h3 className="font-semibold text-[16px] text-[var(--color-black)]">{activeConversation.participant?.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-[16px] text-[var(--color-black)]">{activeConversation.participant?.name}</h3>
+                      {activeContract && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-150 text-indigo-700 text-[10px] font-bold">
+                          💼 Contract: {activeContract.project?.title || 'Active'}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[12px] flex items-center gap-2">
                       {connected && (
                         <span className="inline-flex items-center gap-1 text-[#22c55e]">
@@ -561,6 +608,13 @@ export default function MessagingPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {activeContract && (
+                    <Link to="/contracts">
+                      <Button size="sm" variant="outline" className="text-indigo-700 border-indigo-200 hover:bg-indigo-50/50 mr-2 text-xs">
+                        View Contract
+                      </Button>
+                    </Link>
+                  )}
                   {callState === 'incoming' ? (
                     <>
                       <Button size="sm" variant="secondary" onClick={acceptVideoCall}>
@@ -582,8 +636,8 @@ export default function MessagingPage() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {/* Messages Container */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/60">
                 {loadingMsgs ? (
                   <div className="space-y-3">
                     {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-3/4" />)}
@@ -594,40 +648,55 @@ export default function MessagingPage() {
                     <p className="text-sm">Start the conversation!</p>
                   </div>
                 ) : (
-                  messages.map((msg, idx) => (
-                    <motion.div
-                      key={msg.id || idx}
-                      initial={{ opacity: 0, x: msg.senderId === 'me' ? 12 : -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                      className={cn('flex', msg.senderId === 'me' ? 'justify-end' : 'justify-start')}
-                    >
-                      <div
-                        className={cn(
-                          'max-w-[75%] px-[16px] py-[12px] text-[15px] font-normal',
-                          msg.senderId === 'me'
-                            ? 'bg-[var(--color-btn-blue)] text-[#ffffff] rounded-[18px_18px_4px_18px]'
-                            : 'bg-[rgba(255,255,255,0.75)] border border-[rgba(206,200,232,0.6)] text-[var(--color-black)] rounded-[18px_18px_18px_4px]'
-                        )}
-                      >
-                        <p>{msg.content}</p>
-                        <div className={cn(
-                          'flex items-center gap-1 text-[11px] mt-1 opacity-80',
-                          msg.senderId === 'me' ? 'text-white' : 'text-[var(--color-mid)]'
-                        )}>
-                          <span>{formatRelativeTime(msg.timestamp)}</span>
-                          {msg.senderId === 'me' && (
-                            <span>{msg.read ? '✓✓' : '✓'}</span>
-                          )}
+                  messages.map((msg, idx) => {
+                    const isSystem = msg.content?.startsWith('[SYSTEM]');
+                    const cleanContent = isSystem ? msg.content.replace('[SYSTEM]', '').trim() : msg.content;
+
+                    if (isSystem) {
+                      return (
+                        <div key={msg.id || idx} className="flex justify-center my-4 w-full">
+                          <div className="px-4 py-2 bg-gray-100/90 border border-gray-200 rounded-2xl text-xs text-gray-700 italic flex items-center gap-2 max-w-[85%] shadow-sm font-medium">
+                            {cleanContent}
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))
+                      );
+                    }
+
+                    return (
+                      <motion.div
+                        key={msg.id || idx}
+                        initial={{ opacity: 0, x: msg.senderId === 'me' ? 12 : -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className={cn('flex', msg.senderId === 'me' ? 'justify-end' : 'justify-start')}
+                      >
+                        <div
+                          className={cn(
+                            'max-w-[75%] px-[16px] py-[12px] text-[15px] font-normal shadow-sm',
+                            msg.senderId === 'me'
+                              ? 'bg-[var(--color-btn-blue)] text-[#ffffff] rounded-[18px_18px_4px_18px]'
+                              : 'bg-[rgba(255,255,255,0.95)] border border-[rgba(206,200,232,0.5)] text-[var(--color-black)] rounded-[18px_18px_18px_4px]'
+                          )}
+                        >
+                          <p>{msg.content}</p>
+                          <div className={cn(
+                            'flex items-center gap-1 text-[10px] mt-1.5 opacity-80',
+                            msg.senderId === 'me' ? 'text-white' : 'text-[var(--color-mid)]'
+                          )}>
+                            <span>{formatRelativeTime(msg.timestamp)}</span>
+                            {msg.senderId === 'me' && (
+                              <span>{msg.read ? '✓✓' : '✓'}</span>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input */}
+              {/* Input Form */}
               <form onSubmit={sendMessage} className="p-4 border-t border-[var(--color-border)] bg-card">
                 <div className="flex gap-2 items-center">
                   <button type="button" className="p-2 text-muted hover:text-text transition-colors" aria-label="Attach" disabled>

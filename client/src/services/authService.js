@@ -78,6 +78,7 @@ export const adminService = {
 
 // Proposal services
 export const proposalService = {
+  getProposals: (params) => api.get('/proposals', { params }),
   getMyProposals: () => api.get('/proposals/my'),
   getByProject: (projectId) => api.get(`/proposals/project/${projectId}`),
   getProposalsByProject: (projectId) => api.get(`/proposals/project/${projectId}`),
@@ -122,6 +123,7 @@ export const paymentService = {
   createEscrow: (data) => api.post('/payments/escrow', data),
   releasePayment: (milestoneId) => api.post(`/payments/release/${milestoneId}`),
   requestPayout: (data) => api.post('/payments/payout', data),
+  fundMilestone: (data) => api.post('/payments/fund', data),
 };
 
 // User services

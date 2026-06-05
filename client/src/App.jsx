@@ -19,10 +19,10 @@ import ProfileEdit from './pages/ProfileEdit';
 import FreelancerOnboarding from './pages/onboarding/FreelancerOnboarding';
 import ClientOnboarding from './pages/onboarding/ClientOnboarding';
 import PaymentPage from './pages/PaymentPage';
-import PaymentsPage from './pages/PaymentsPage';
 import EarningsPage from './pages/EarningsPage';
 import ContractsPage from './pages/ContractsPage';
 import MyProposalsPage from './pages/MyProposalsPage';
+import ProposalsPage from './pages/ProposalsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import InterviewRoom from './pages/InterviewRoom';
 import MyInterviewsPage from './pages/MyInterviewsPage';
@@ -67,6 +67,11 @@ export default function App() {
             >
               <Route path="/dashboard/freelancer" element={<FreelancerOnly><FreelancerDashboard /></FreelancerOnly>} />
               <Route path="/dashboard/client" element={<ClientOnly><ClientDashboard /></ClientOnly>} />
+              <Route path="/dashboard/client/contracts" element={<ClientOnly><ContractsPage /></ClientOnly>} />
+              <Route path="/dashboard/client/proposals" element={<ClientOnly><ProposalsPage /></ClientOnly>} />
+              <Route path="/dashboard/client/talents" element={<ClientOnly><TalentPage /></ClientOnly>} />
+              <Route path="/dashboard/client/interviews" element={<ClientOnly><MyInterviewsPage /></ClientOnly>} />
+              <Route path="/dashboard/client/messages" element={<ProtectedRoute><MessagingPage /></ProtectedRoute>} />
               <Route path="/admin" element={<AdminOnly><AdminDashboard /></AdminOnly>} />
               <Route path="/admin/users" element={<AdminOnly><AdminDashboard section="users" /></AdminOnly>} />
               <Route path="/admin/projects" element={<AdminOnly><AdminDashboard section="projects" /></AdminOnly>} />
@@ -75,8 +80,8 @@ export default function App() {
               <Route path="/admin/disputes" element={<AdminOnly><AdminDashboard section="disputes" /></AdminOnly>} />
               <Route path="/admin/analytics" element={<AdminOnly><AdminDashboard section="analytics" /></AdminOnly>} />
               <Route path="/my-proposals" element={<FreelancerOnly><MyProposalsPage /></FreelancerOnly>} />
+              <Route path="/proposals" element={<ClientOnly><ProposalsPage /></ClientOnly>} />
               <Route path="/earnings" element={<FreelancerOnly><EarningsPage /></FreelancerOnly>} />
-              <Route path="/payments" element={<RoleGuard roles={['client', 'freelancer', 'admin']}><PaymentsPage /></RoleGuard>} />
               <Route path="/contracts" element={<ProtectedRoute><ContractsPage /></ProtectedRoute>} />
               <Route path="/create-project" element={<ClientOnly><CreateProjectPage /></ClientOnly>} />
               <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />

@@ -1,3 +1,4 @@
+// Routes for Messages
 import { Router } from 'express';
 import {
   getConversations,
@@ -9,6 +10,7 @@ import {
 } from '../controllers/messageController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
+// Messaging routes — real-time chat and conversation management
 const router = Router();
 
 router.get('/conversations', authMiddleware, getConversations);

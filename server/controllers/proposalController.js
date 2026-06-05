@@ -79,12 +79,21 @@ export async function submitProposal(req, res) {
 export async function getProposals(req, res) {
   try {
     const { project } = req.query;
-    if (!project) {
+    let query = {};
+
+    if (project) {
+      query.project = project;
+    } else if (req.user.role === 'client') {
+      // For clients, fetch proposals for all their projects
+      const myProjects = await Project.find({ client: req.user._id }).select('_id');
+      query.project = { $in: myProjects.map((p) => p._id) };
+    } else if (req.user.role !== 'admin') {
       return res.status(400).json({ message: 'Project id is required' });
     }
 
-    const proposals = await Proposal.find({ project })
+    const proposals = await Proposal.find(query)
       .populate('freelancer', 'name avatar title rating skills hourlyRate')
+      .populate('project', 'title budget status client')
       .sort({ matchScore: -1, createdAt: -1 });
     return res.json(proposals);
   } catch (err) {

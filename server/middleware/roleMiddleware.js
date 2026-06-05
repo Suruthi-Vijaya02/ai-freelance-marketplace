@@ -1,3 +1,4 @@
+/** Middleware to restrict access to specific user roles. */
 export function roleMiddleware(...roles) {
   return (req, res, next) => {
     if (!req.user) {

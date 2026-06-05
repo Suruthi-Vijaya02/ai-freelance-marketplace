@@ -1,3 +1,5 @@
+// Calculate matching score based on shared skills between freelancer and project
+/** Calculates a match score between freelancer skills and project requirements. */
 export function calculateMatchScore(freelancerSkills = [], projectSkills = []) {
   if (!projectSkills.length) return 50;
   const normalizedFreelancer = freelancerSkills.map((s) => s.toLowerCase());
@@ -9,6 +11,8 @@ export function calculateMatchScore(freelancerSkills = [], projectSkills = []) {
   return Math.min(100, Math.max(0, score));
 }
 
+// Rank freelancers by their matching score for a specific project
+/** Ranks a list of freelancers based on their skill match with a project. */
 export function rankFreelancersForProject(freelancers, projectSkills) {
   return freelancers
     .map((f) => ({
@@ -18,6 +22,8 @@ export function rankFreelancersForProject(freelancers, projectSkills) {
     .sort((a, b) => b.matchScore - a.matchScore);
 }
 
+// Rank projects by their matching score for a specific freelancer
+/** Ranks a list of projects based on their skill match with a freelancer. */
 export function rankProjectsForFreelancer(projects, freelancerSkills) {
   return projects
     .map((p) => ({
@@ -27,6 +33,8 @@ export function rankProjectsForFreelancer(projects, freelancerSkills) {
     .sort((a, b) => b.matchScore - a.matchScore);
 }
 
+// Parse raw resume text to extract skills and summary using keyword matching
+/** Extracts skills and a summary from raw resume text using keyword matching. */
 export function parseResumeText(text = '') {
   const skillKeywords = [
     'react', 'node', 'python', 'javascript', 'typescript', 'mongodb',

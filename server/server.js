@@ -15,6 +15,7 @@ import messageRoutes from './routes/messageRoutes.js';
 import interviewRoutes from './routes/interviewRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import { getPlatformStats } from './controllers/statsController.js';
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/contracts', contractRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.use((err, _req, res, _next) => {

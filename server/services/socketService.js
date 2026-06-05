@@ -2,14 +2,16 @@ import { calculateMatchScore } from './aiMatchingService.js';
 import { normalizeConversationId } from '../utils/conversationId.js';
 import { emitConversationMessage } from '../utils/emitConversationMessage.js';
 
+// Helper to format room name for a conversation
+/** Formats a standardized room name for a specific conversation ID. */
 function convRoom(conversationId) {
   return `conversation:${normalizeConversationId(conversationId)}`;
 }
 
+// Initialize socket handlers and define event listeners for real-time features
+/** Sets up Socket.IO event listeners for real-time collaboration and messaging. */
 export function initSocketHandlers(io) {
   io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`);
-
     socket.on('join_project', (projectId) => {
       socket.join(`project:${projectId}`);
       socket.emit('joined', { projectId });
@@ -20,7 +22,7 @@ export function initSocketHandlers(io) {
       socket.emit('bid_error', { message: 'Use POST /api/proposals to submit a proposal' });
     });
 
-    socket.on('send_message', (data) => {
+    socket.on('send_message', async (data) => {
       if (!data?.conversationId) return;
       const payload = {
         ...data,
@@ -29,6 +31,18 @@ export function initSocketHandlers(io) {
         timestamp: data.timestamp || data.createdAt || new Date().toISOString(),
       };
       emitConversationMessage(io, payload.conversationId, payload);
+
+      // Persist notification for the message recipient 
+      try { 
+        const Notification = (await import('../models/Notification.js')).default; 
+        await Notification.create({ 
+          user: data.receiverId || data.receiver, 
+          message: `New message from ${data.senderName || 'a user'}`, 
+          type: 'message', 
+        }); 
+      } catch (err) { 
+        // Non-blocking — notification failure should not affect message delivery 
+      } 
     });
 
     socket.on('join_user', (userId) => {
@@ -101,7 +115,7 @@ export function initSocketHandlers(io) {
     });
 
     socket.on('disconnect', () => {
-      console.log(`Socket disconnected: ${socket.id}`);
+      // Clean up if needed
     });
   });
 }

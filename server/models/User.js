@@ -56,6 +56,22 @@ const userSchema = new mongoose.Schema(
       experienceKeywords: [String],
       generatedAt: Date,
     },
+    subscription: {
+      tier: { type: String, enum: ['free', 'pro', 'elite'], default: 'free' },
+      status: { type: String, enum: ['active', 'cancelled', 'past_due'], default: 'active' },
+      currentPeriodStart: Date,
+      currentPeriodEnd: Date,
+      cancelAtPeriodEnd: { type: Boolean, default: false }
+    },
+    totalEarnings: { type: Number, default: 0 }, // cents, lifetime
+    availableBalance: { type: Number, default: 0 }, // cents, withdrawable
+    totalWithdrawn: { type: Number, default: 0 }, // cents
+    bankAccount: {
+      accountHolderName: String,
+      bankName: String,
+      accountNumber: String, // encrypted in production
+      ifscCode: String
+    }
   },
   { timestamps: true }
 );

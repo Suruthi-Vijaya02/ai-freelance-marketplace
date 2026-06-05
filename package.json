@@ -2,8 +2,9 @@
   "name": "freelannce-ai",
   "version": "1.0.0",
   "private": true,
-  "description": "FreelannceAI — AI Powered Global Freelance Marketplace",
+  "description": "AI-powered freelance marketplace with real-time collaboration, WebRTC video interviews, AI skill matching, and Stripe escrow payments",
   "scripts": {
+    "start": "concurrently \"npm run start --prefix server\" \"npm run dev --prefix client\"",
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "dev:client": "npm run dev --prefix client",
     "dev:server": "npm run dev --prefix server",

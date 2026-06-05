@@ -1,3 +1,4 @@
+// Routes for Proposals
 import { Router } from 'express';
 import {
   submitProposal,
@@ -12,6 +13,7 @@ import { roleMiddleware } from '../middleware/roleMiddleware.js';
 import { fraudDetectionMiddleware } from '../middleware/fraudDetectionMiddleware.js';
 import { validateObjectId } from '../utils/validateObjectId.js';
 
+// Proposal routes — submitting and managing project bids
 const router = Router();
 
 router.get('/my', authMiddleware, roleMiddleware('freelancer'), getMyProposals);

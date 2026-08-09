@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, User, Code2, Briefcase, Image, CheckCircle2, ChevronRight, ChevronLeft,
   Sparkles, X, Plus, Loader2, FileText, Camera, Trash2,
-  AlertCircle, Zap, Globe
+  AlertCircle, Zap, Globe, DollarSign
 } from 'lucide-react';
 import { userService } from '../../services/authService';
 import toast from 'react-hot-toast';

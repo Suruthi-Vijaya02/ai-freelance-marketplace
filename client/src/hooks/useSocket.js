@@ -50,31 +50,17 @@ function getSocketInstance() {
     });
 
     socketInstance.on('connect', () => {
-      console.log('[Socket] Connected:', socketInstance.id);
       notifyConnection(true);
       rejoinRooms(socketInstance);
     });
 
-    socketInstance.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
+    socketInstance.on('disconnect', () => {
       notifyConnection(false);
     });
 
     socketInstance.on('connect_error', (error) => {
       console.error('[Socket] Connection error:', error?.message || error);
       notifyConnection(false);
-    });
-
-    socketInstance.io.on('reconnect_attempt', (attempt) => {
-      console.log(`[Socket] Reconnection attempt ${attempt}`);
-    });
-
-    socketInstance.io.on('reconnect', (attempt) => {
-      console.log(`[Socket] Reconnected after ${attempt} attempt(s)`);
-    });
-
-    socketInstance.io.on('reconnect_failed', () => {
-      console.error('[Socket] Unable to reconnect to server.');
     });
   }
   return socketInstance;
@@ -172,7 +158,6 @@ export function useSocket(
     socketJoinState.projectId = String(projectId);
     if (socket.connected) {
       socket.emit('join_project', String(projectId));
-      console.log('[Socket] Joined project:', projectId);
     }
   }, [projectId]);
 
@@ -186,28 +171,24 @@ export function useSocket(
     if (!id || !socketRef.current) return;
     socketJoinState.projectId = String(id);
     socketRef.current.emit('join_project', String(id));
-    console.log('[Socket] join_project:', id);
   }, []);
 
   const joinConversation = useCallback((conversationId) => {
     if (!conversationId || !socketRef.current) return;
     socketJoinState.conversationId = String(conversationId);
     socketRef.current.emit('join_conversation', String(conversationId));
-    console.log('[Socket] join_conversation:', conversationId);
   }, []);
 
   const joinUser = useCallback((userId) => {
     if (!userId || !socketRef.current) return;
     socketJoinState.userId = String(userId);
     socketRef.current.emit('join_user', socketJoinState.userId);
-    console.log('[Socket] join_user:', socketJoinState.userId);
   }, []);
 
   const joinInterview = useCallback((roomId) => {
     if (!roomId || !socketRef.current) return;
     socketJoinState.interviewRoomId = String(roomId);
     socketRef.current.emit('join_interview', String(roomId));
-    console.log('[Socket] join_interview:', roomId);
   }, []);
 
   const joinEditor = useCallback((roomId, userId, userName) => {
@@ -220,7 +201,6 @@ export function useSocket(
       userId: userId ? String(userId) : null,
       userName: userName || null,
     });
-    console.log('[Socket] join-editor:', roomId);
   }, []);
 
   const emitCodeChange = useCallback((roomId, code, language) => {

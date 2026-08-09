@@ -146,11 +146,8 @@ async function seed() {
     },
   ]);
 
-  console.log('Seed complete!');
+  console.log('Seed complete.');
   console.log('Conversation ID:', convId);
-  console.log('Admin: admin@suruthiviayar.com / admin123');
-  console.log('Client: client@demo.com / demo1234');
-  console.log('Freelancer: freelancer@demo.com / demo1234');
   console.log('Project ID:', project._id.toString());
 
   await mongoose.disconnect();

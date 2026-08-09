@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Briefcase, Target, CreditCard, CheckCircle2, ChevronRight, ChevronLeft,
-  AlertCircle, Loader2, Camera, Building2, Globe, DollarSign, Clock, Star, Zap, X
+  AlertCircle, Loader2, Camera, Building2, Globe, Zap, X
 } from 'lucide-react';
 import { userService } from '../../services/authService';
 import toast from 'react-hot-toast';

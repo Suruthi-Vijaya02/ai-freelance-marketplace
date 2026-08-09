@@ -9,7 +9,11 @@ export async function authMiddleware(req, res, next) {
       return res.status(401).json({ message: 'Authentication required' });
     }
     const token = header.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return res.status(500).json({ message: 'Server JWT configuration is missing' });
+    }
+    const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.id).select('-password');
     if (!user) return res.status(401).json({ message: 'User not found' });
     req.user = user;

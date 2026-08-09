@@ -6,7 +6,9 @@ export async function optionalAuthMiddleware(req, res, next) {
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) return next();
     const token = header.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return next();
+    const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.id).select('-password');
     if (user) req.user = user;
   } catch {

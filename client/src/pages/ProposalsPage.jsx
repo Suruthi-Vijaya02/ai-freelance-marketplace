@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   FileText,
@@ -9,21 +9,18 @@ import {
   X,
   Clock,
   DollarSign,
-  ArrowRight,
-  Search,
-  Filter
+  ArrowRight
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import { useAuth } from '../context/AuthContext';
-import { proposalService, messageService, projectService } from '../services/authService';
+import { proposalService, messageService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
-import { fadeInUp, pageFade, stagger } from '../utils/motionVariants';
+import { pageFade, stagger } from '../utils/motionVariants';
 
 export default function ProposalsPage() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Search, Filter, Briefcase, Clock, DollarSign, Users } from 'lucide-react';
+import { Search, Briefcase, Clock, DollarSign, Users, Filter } from 'lucide-react';
 import Footer from '../components/layout/Footer';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -15,7 +15,7 @@ import useRole from '../hooks/useRole';
 import { projectService, proposalService } from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
 import BrowseHero from '../assets/img2.png';
-import { fadeInUp, floatHero, heroReveal, pageFade, stagger } from '../utils/motionVariants';
+import { heroReveal, pageFade, stagger } from '../utils/motionVariants';
 
 export default function ProjectsPage() {
   const { requireAuth, showLoginModal, closeLoginModal, isAuthenticated } = useProtectedAction();
@@ -180,26 +180,25 @@ export default function ProjectsPage() {
         <div className="flex flex-wrap gap-2 mb-6">
           {(isFreelancer
             ? [
-                { id: 'browse', label: 'Browse Projects' },
-                { id: 'applied', label: 'Applied Projects' },
-                { id: 'hired', label: 'Hired Projects' },
-              ]
+              { id: 'browse', label: 'Browse Projects' },
+              { id: 'applied', label: 'Applied Projects' },
+              { id: 'hired', label: 'Hired Projects' },
+            ]
             : isClient
-            ? [
+              ? [
                 { id: 'mine', label: 'My Posted Projects' },
                 { id: 'browse', label: 'Browse All Projects' },
               ]
-            : [{ id: 'browse', label: 'Browse Projects' }]
+              : [{ id: 'browse', label: 'Browse Projects' }]
           ).map(({ id, label }) => (
             <button
               key={id}
               type="button"
               onClick={() => setSearchParams({ tab: id })}
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                tab === id
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${tab === id
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border text-muted hover:text-text'
-              }`}
+                }`}
             >
               {label}
             </button>

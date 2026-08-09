@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, User, Code2, Briefcase, Image, CheckCircle2, ChevronRight, ChevronLeft,
-  Sparkles, X, Plus, DollarSign, Clock, Star, Loader2, FileText, Camera, Trash2,
+  Sparkles, X, Plus, Loader2, FileText, Camera, Trash2,
   AlertCircle, Zap, Globe
 } from 'lucide-react';
 import { userService } from '../../services/authService';
@@ -154,7 +154,7 @@ function _generateBio(text, skills) {
   return finalBio.length > 450 ? finalBio.slice(0, 447) + '...' : finalBio;
 }
 
-function parseAndEnrichResume(text) {
+function parseResumeContent(text) {
   const skills = _suggestSkills(text || '');
   const tokens = (text || '').toLowerCase().split(/\s+/);
   const tokenSet = new Set(tokens);

@@ -1,7 +1,18 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Ensure server/.env is loaded regardless of the current working directory.
+// This makes dotenv loading robust when the process is started from the repository root.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
+// Temporary diagnostic (non-secret): confirm presence and length only
+console.log('[env] GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY, 'length:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0);
 import express from 'express';
 import cors from 'cors';
-import http from 'http';
+import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
 import { initSocketHandlers } from './services/socketService.js';
@@ -22,13 +33,13 @@ import aiRoutes from "./routes/aiRoutes.js";
 import collaborationRoutes from "./routes/collaborationRoutes.js";
 
 const app = express();
-const server = http.createServer(app);
+const server = createServer(app);
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-const allowedOrigins = [CLIENT_URL, 'http://localhost:5174'];
+const allowedOrigins = new Set([CLIENT_URL, 'http://localhost:5174']);
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+    if (allowedOrigins.has(origin) || origin.startsWith('http://localhost:')) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
@@ -40,7 +51,7 @@ const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+      if (allowedOrigins.has(origin) || origin.startsWith('http://localhost:')) {
         return callback(null, true);
       }
       callback(new Error('Not allowed by CORS'));

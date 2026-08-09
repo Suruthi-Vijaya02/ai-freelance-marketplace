@@ -1,18 +1,19 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
-// Helper to sign JWT token for authenticated users
-/** Generates a JWT token for the given user. */
 function signToken(user) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+
   return jwt.sign(
     { id: user._id, role: user.role },
-    process.env.JWT_SECRET || 'dev-secret',
+    secret,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 }
 
-// Register a new user and return user data with token
-/** Registers a new user and returns their profile with an auth token. */
 export async function register(req, res) {
   try {
     const { name, email, password, role } = req.body;
@@ -37,7 +38,6 @@ export async function register(req, res) {
   }
 }
 
-/** Authenticates user credentials and returns their profile with an auth token. */
 export async function login(req, res) {
   try {
     const { email, password } = req.body;

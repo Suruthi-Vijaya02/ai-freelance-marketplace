@@ -1,34 +1,101 @@
 // server/services/aiService.js
 /**
- * LOCAL AI SERVICE — No OpenAI API, No Training Needed
- * All processing runs on your server using rule-based algorithms
- * 
- * HOW IT WORKS:
- * 1. Smart templates filled with user's actual data (not generic text)
- * 2. Keyword matching against 100+ tech skills database
- * 3. Rule-based profile completeness scoring
- * 4. Text similarity algorithms for matching
+ * Gemini-first AI service with automatic fallback to the existing
+ * rule-based logic so current routes and frontend contracts stay intact.
  */
+import { generateJSON, generateText } from './geminiService.js';
+import {
+  BIO_GENERATOR_SYSTEM_PROMPT,
+  PROPOSAL_GENERATOR_SYSTEM_PROMPT,
+  RESUME_PARSER_SYSTEM_PROMPT,
+} from './geminiPrompts.js';
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function normalizeResumePayload(data = {}) {
+  return {
+    skills: normalizeStringArray(data.skills),
+    bio: typeof data.bio === 'string' ? data.bio.trim() : '',
+    experienceKeywords: normalizeStringArray(data.experienceKeywords),
+    title: typeof data.title === 'string' ? data.title.trim() : '',
+    summary: typeof data.summary === 'string' ? data.summary.trim() : '',
+  };
+}
+
+function mapGeminiFailure(result, fallbackSource) {
+  return {
+    success: false,
+    data: null,
+    error: result?.error || {
+      code: 'GEMINI_UNAVAILABLE',
+      message: 'Gemini is unavailable.',
+      status: 503,
+    },
+    source: fallbackSource,
+  };
+}
 
 // ─── BIO GENERATION ──────────────────────────────────────────────
 export async function generateBioWithAI(data) {
+  const prompt = [
+    `Title: ${data?.title || 'Professional'}`,
+    `Tone: ${data?.tone || 'professional'}`,
+    `Skills: ${(data?.skills || []).join(', ') || 'Not provided'}`,
+    `Experience: ${JSON.stringify(data?.experience || [])}`,
+  ].join('\n');
+
+  const geminiResult = await generateText(prompt, {
+    systemInstruction: BIO_GENERATOR_SYSTEM_PROMPT,
+    temperature: 0.7,
+    maxOutputTokens: 220,
+  });
+
+  if (geminiResult.success && geminiResult.data?.text?.trim()) {
+    return {
+      bio: geminiResult.data.text.trim(),
+      alternatives: [],
+      source: 'gemini',
+      info: `Generated using ${geminiResult.model || 'Gemini'}`,
+    };
+  }
+
   const { skills = [], experience = [], title = 'Professional', tone = 'professional' } = data;
 
-  // ✅ GUARANTEE non-empty output
   const skillStr = skills.slice(0, 4).join(', ') || 'various technologies';
   const expYears = Array.isArray(experience) ? experience.length : (experience || 0);
   const expPhrase = expYears > 0 ? `with ${expYears}+ years of experience` : 'with proven expertise';
 
   const toneMap = {
-    professional: { adj: 'Experienced', focus: 'delivering high-quality solutions' },
-    casual: { adj: 'Passionate', focus: 'building cool stuff that works' },
-    confident: { adj: 'Expert', focus: 'driving exceptional results' }
+    professional: {
+      adjs: ['Experienced', 'Dedicated', 'Versatile'],
+      focuses: ['delivering high-quality solutions', 'architecting scalable systems', 'optimizing business workflows']
+    },
+    casual: {
+      adjs: ['Passionate', 'Creative', 'Tech-savvy'],
+      focuses: ['building cool stuff that works', 'creating engaging user experiences', 'solving complex problems with code']
+    },
+    confident: {
+      adjs: ['Expert', 'Result-driven', 'Strategic'],
+      focuses: ['driving exceptional results', 'leading technical innovation', 'transforming ideas into powerful software']
+    }
   };
+
   const t = toneMap[tone] || toneMap.professional;
+  const adj = t.adjs[Math.floor(Math.random() * t.adjs.length)];
+  const focus = t.focuses[Math.floor(Math.random() * t.focuses.length)];
 
-  const bio = `${t.adj} ${title} ${expPhrase} specializing in ${skillStr}. ${t.focus}.`;
+  // Variety in sentence structure
+  const structures = [
+    `${adj} ${title} ${expPhrase} specializing in ${skillStr}. My focus is on ${focus}.`,
+    `As a ${adj} ${title} ${expPhrase}, I excel at ${focus}, particularly within the ${skillStr} ecosystem.`,
+    `${expPhrase.charAt(0).toUpperCase() + expPhrase.slice(1)}, I am a ${adj} ${title} dedicated to ${focus} using ${skillStr}.`
+  ];
 
-  // ✅ NEVER return empty
+  const bio = structures[Math.floor(Math.random() * structures.length)];
+
   return {
     bio: bio || `Skilled ${title} ready to contribute to impactful projects.`,
     alternatives: [],
@@ -39,6 +106,49 @@ export async function generateBioWithAI(data) {
 
 // ─── RESUME PARSING ────────────────────────────────────────────
 export async function parseResumeWithAI(resumeText, userData = {}) {
+  if (!resumeText || resumeText.trim().length < 50) {
+    return { skills: [], roles: [], yearsExperience: 0, summary: '', source: 'empty' };
+  }
+
+  const geminiResult = await generateJSON(
+    [
+      `User context: ${JSON.stringify(userData || {})}`,
+      'Extract the following resume into the required JSON shape.',
+      'Resume text:',
+      resumeText.substring(0, 12000),
+    ].join('\n\n'),
+    {
+      systemInstruction: RESUME_PARSER_SYSTEM_PROMPT,
+      responseSchema: {
+        type: 'object',
+        properties: {
+          skills: { type: 'array', items: { type: 'string' } },
+          bio: { type: 'string' },
+          experienceKeywords: { type: 'array', items: { type: 'string' } },
+          title: { type: 'string' },
+          summary: { type: 'string' },
+        },
+        required: ['skills', 'bio', 'experienceKeywords', 'title', 'summary'],
+      },
+      temperature: 0.2,
+      maxOutputTokens: 1500,
+    }
+  );
+
+  if (geminiResult.success) {
+    const parsed = normalizeResumePayload(geminiResult.data);
+    return {
+      skills: parsed.skills,
+      roles: parsed.title ? [parsed.title] : [],
+      yearsExperience: 0,
+      summary: parsed.summary || parsed.bio,
+      bio: parsed.bio,
+      experienceKeywords: parsed.experienceKeywords,
+      title: parsed.title,
+      source: 'gemini',
+    };
+  }
+
   if (!resumeText || resumeText.trim().length < 50) {
     return { skills: [], roles: [], yearsExperience: 0, summary: '', source: 'empty' };
   }
@@ -58,8 +168,8 @@ export async function parseResumeWithAI(resumeText, userData = {}) {
 
   const skills = skillDatabase.filter(skill => lowerText.includes(skill.toLowerCase()));
 
-  const roles = ['Developer', 'Engineer', 'Designer', 'Manager', 'Analyst', 
-    'Consultant', 'Architect', 'Lead', 'Senior', 'Full Stack', 'Frontend', 
+  const roles = ['Developer', 'Engineer', 'Designer', 'Manager', 'Analyst',
+    'Consultant', 'Architect', 'Lead', 'Senior', 'Full Stack', 'Frontend',
     'Backend', 'DevOps', 'Data Scientist'].filter(r => lowerText.includes(r.toLowerCase()));
 
   const yearMatches = resumeText.match(/(\d+)\+?\s*years?/gi);
@@ -79,6 +189,42 @@ export async function parseResumeWithAI(resumeText, userData = {}) {
 
 // ─── PROPOSAL GENERATION ───────────────────────────────────────
 export async function generateProposalWithAI(projectTitle, projectDescription, freelancerSkills, freelancerBio, freelancerName) {
+  const geminiResult = await generateJSON(
+    [
+      `Project title: ${projectTitle || ''}`,
+      `Project description: ${projectDescription || ''}`,
+      `Freelancer name: ${freelancerName || 'Your Name'}`,
+      `Freelancer skills: ${(freelancerSkills || []).join(', ')}`,
+      `Freelancer bio: ${freelancerBio || ''}`,
+    ].join('\n'),
+    {
+      systemInstruction: PROPOSAL_GENERATOR_SYSTEM_PROMPT,
+      responseSchema: {
+        type: 'object',
+        properties: {
+          coverLetter: { type: 'string' },
+          estimatedHours: { type: 'number' },
+          timeline: { type: 'string' },
+          priceSuggestion: { type: 'number' },
+        },
+        required: ['coverLetter', 'estimatedHours', 'timeline', 'priceSuggestion'],
+      },
+      temperature: 0.5,
+      maxOutputTokens: 1000,
+    }
+  );
+
+  if (geminiResult.success && geminiResult.data) {
+    return {
+      coverLetter: geminiResult.data.coverLetter?.trim() || '',
+      estimatedHours: Number(geminiResult.data.estimatedHours) || 0,
+      timeline: geminiResult.data.timeline?.trim() || '',
+      priceSuggestion: Number(geminiResult.data.priceSuggestion) || 0,
+      source: 'gemini',
+      info: `Generated using ${geminiResult.model || 'Gemini'}`,
+    };
+  }
+
   const skills = freelancerSkills || [];
   const skillStr = skills.slice(0, 3).join(', ') || 'relevant technologies';
   const desc = (projectDescription || '').substring(0, 300);
@@ -115,6 +261,19 @@ ${name}`;
     source: 'local-ai',
     info: 'Personalized using your skills and project description'
   };
+}
+
+export async function parseResumeWithGemini(resumeText, userData = {}) {
+  const result = await parseResumeWithAI(resumeText, userData);
+  if (result?.source === 'gemini') {
+    return {
+      success: true,
+      data: normalizeResumePayload(result),
+      error: null,
+      source: 'gemini',
+    };
+  }
+  return mapGeminiFailure(null, result?.source || 'local-ai-keyword');
 }
 
 // ─── PROFILE SUGGESTIONS ──────────────────────────────────────
@@ -169,4 +328,4 @@ export async function generateProfileSuggestions(user) {
   return suggestions;
 }
 
-export default { generateBioWithAI, parseResumeWithAI, generateProposalWithAI, generateProfileSuggestions };
+export default { generateBioWithAI, parseResumeWithAI, generateProposalWithAI, generateProfileSuggestions };

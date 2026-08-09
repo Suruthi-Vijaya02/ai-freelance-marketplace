@@ -6,6 +6,7 @@ import {
   updateAvailability,
   getUserById,
   getUserReviews,
+  addReview,
   getFreelancers,
   uploadResume,
   getAiSuggestions,
@@ -27,6 +28,7 @@ router.get('/ai-suggestions', authMiddleware, getAiSuggestions);
 router.post('/ai-suggestions/apply', authMiddleware, applyAiSuggestions);
 router.put('/:id/availability', authMiddleware, validateObjectId(), updateAvailability);
 router.get('/:id/reviews', validateObjectId(), getUserReviews);
+router.post('/:id/reviews', authMiddleware, validateObjectId(), addReview);
 router.get('/:id', validateObjectId(), getUserById);
 
 export default router;

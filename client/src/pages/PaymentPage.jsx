@@ -38,6 +38,9 @@ export default function PaymentPage() {
 
   // Commission preview state
   const [commissionRate, setCommissionRate] = useState(0.10); // default 10%
+  const [reviewingMilestone, setReviewingMilestone] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   const loadData = useCallback(async (signal) => {
     if (!projectId) return;
@@ -178,6 +181,26 @@ export default function PaymentPage() {
 
   const handleRequestRelease = () => {
     toast.success('Release request sent to client via Messages');
+  };
+
+  const handleSubmitReview = async (freelancerId) => {
+    try {
+      setProcessing(true);
+      const projectId = contract.project?._id || contract.project;
+      await api.post(`/users/${freelancerId}/reviews`, {
+        rating,
+        comment: reviewComment,
+        projectId
+      });
+      toast.success('Review submitted successfully!');
+      setReviewingMilestone(null);
+      setRating(5);
+      setReviewComment('');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -345,11 +368,41 @@ export default function PaymentPage() {
                             </Button>
                           )}
                           {status === 'released' && (
-                            <div className="text-xs text-muted flex flex-col gap-0.5">
-                              <span className="text-emerald-600 font-bold flex items-center gap-1">
-                                <CheckCircle className="w-3.5 h-3.5" /> Payout Completed
-                              </span>
-                              <span>Freelancer paid: {formatCurrencyUtil(freelancerNet / 100, currency)} (after {actualRate * 100}% commission)</span>
+                            <div className="text-xs text-muted flex flex-col gap-2">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-emerald-600 font-bold flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5" /> Payout Completed
+                                </span>
+                                <span>Freelancer paid: {formatCurrencyUtil(freelancerNet / 100, currency)} (after {actualRate * 100}% commission)</span>
+                              </div>
+                              {isClient && !reviewingMilestone && (
+                                <Button size="sm" variant="outline" onClick={() => setReviewingMilestone(ms._id)}>
+                                  Leave a Review
+                                </Button>
+                              )}
+                              {isClient && reviewingMilestone === ms._id && (
+                                <div className="p-3 bg-white border border-border rounded-lg mt-2 flex flex-col gap-2 shadow-sm">
+                                  <label className="font-semibold text-text text-sm">Rating (1-5)</label>
+                                  <input 
+                                    type="number" 
+                                    min="1" max="5" 
+                                    value={rating} 
+                                    onChange={e => setRating(Number(e.target.value))}
+                                    className="border border-border p-1 rounded-md"
+                                  />
+                                  <label className="font-semibold text-text text-sm">Comment</label>
+                                  <textarea 
+                                    value={reviewComment} 
+                                    onChange={e => setReviewComment(e.target.value)}
+                                    className="border border-border p-2 rounded-md"
+                                    rows="2"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button size="sm" disabled={processing} onClick={() => handleSubmitReview(contract.freelancer?._id || contract.freelancer)}>Submit Review</Button>
+                                    <Button size="sm" variant="ghost" onClick={() => setReviewingMilestone(null)}>Cancel</Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

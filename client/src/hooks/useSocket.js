@@ -1,45 +1,81 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || '';
-
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 let socketInstance = null;
 const connectionSubscribers = new Set();
+
 const socketJoinState = {
   userId: null,
   conversationId: null,
   projectId: null,
   interviewRoomId: null,
+  editorRoomId: null,
+  editorUserId: null,
+  editorUserName: null,
 };
 
 function rejoinRooms(socket) {
+  if (!socket || !socket.connected) return;
   if (socketJoinState.userId) socket.emit('join_user', socketJoinState.userId);
   if (socketJoinState.conversationId) socket.emit('join_conversation', socketJoinState.conversationId);
   if (socketJoinState.projectId) socket.emit('join_project', socketJoinState.projectId);
   if (socketJoinState.interviewRoomId) socket.emit('join_interview', socketJoinState.interviewRoomId);
+  if (socketJoinState.editorRoomId) {
+    socket.emit('join-editor', {
+      roomId: socketJoinState.editorRoomId,
+      userId: socketJoinState.editorUserId,
+      userName: socketJoinState.editorUserName,
+    });
+  }
 }
 
 function notifyConnection(connected) {
-  connectionSubscribers.forEach((cb) => cb(connected));
+  connectionSubscribers.forEach((cb) => {
+    try { cb(connected); } catch (e) { console.error('[Socket] subscriber error:', e); }
+  });
 }
 
 function getSocketInstance() {
   if (!socketInstance) {
-    socketInstance = io(SOCKET_URL || undefined, {
+    socketInstance = io(SOCKET_URL, {
       path: '/socket.io',
+      transports: ['polling', 'websocket'],
       autoConnect: true,
-      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      timeout: 10000,
     });
 
     socketInstance.on('connect', () => {
+      console.log('[Socket] Connected:', socketInstance.id);
       notifyConnection(true);
       rejoinRooms(socketInstance);
     });
-    socketInstance.on('disconnect', () => notifyConnection(false));
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('[Socket] Disconnected:', reason);
+      notifyConnection(false);
+    });
+
+    socketInstance.on('connect_error', (error) => {
+      console.error('[Socket] Connection error:', error?.message || error);
+      notifyConnection(false);
+    });
+
+    socketInstance.io.on('reconnect_attempt', (attempt) => {
+      console.log(`[Socket] Reconnection attempt ${attempt}`);
+    });
+
+    socketInstance.io.on('reconnect', (attempt) => {
+      console.log(`[Socket] Reconnected after ${attempt} attempt(s)`);
+    });
+
+    socketInstance.io.on('reconnect_failed', () => {
+      console.error('[Socket] Unable to reconnect to server.');
+    });
   }
   return socketInstance;
 }
@@ -48,15 +84,32 @@ function subscribeConnection(callback) {
   connectionSubscribers.add(callback);
   const socket = getSocketInstance();
   callback(socket.connected);
-  return () => connectionSubscribers.delete(callback);
+  return () => { connectionSubscribers.delete(callback); };
 }
 
 function getConnectionSnapshot() {
   return socketInstance?.connected ?? false;
 }
 
-export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer, onAnswer, onIceCandidate, onCallEnd, onProposalUpdated } = {}) {
+export function useSocket(
+  projectId,
+  {
+    onNewBid,
+    onNewMessage,
+    onTyping,
+    onOffer,
+    onAnswer,
+    onIceCandidate,
+    onCallEnd,
+    onProposalUpdated,
+    onUserJoined,
+    onCodeUpdate,
+    onCursorUpdate,
+  } = {}
+) {
   const socketRef = useRef(null);
+
+  // Callback refs
   const onNewBidRef = useRef(onNewBid);
   const onNewMessageRef = useRef(onNewMessage);
   const onTypingRef = useRef(onTyping);
@@ -65,142 +118,155 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
   const onIceCandidateRef = useRef(onIceCandidate);
   const onCallEndRef = useRef(onCallEnd);
   const onProposalUpdatedRef = useRef(onProposalUpdated);
+  const onUserJoinedRef = useRef(onUserJoined);
+  const onCodeUpdateRef = useRef(onCodeUpdate);
+  const onCursorUpdateRef = useRef(onCursorUpdate);
+
   const connected = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, () => false);
 
-  useEffect(() => {
-    onNewBidRef.current = onNewBid;
-  }, [onNewBid]);
+  // Keep refs updated
+  useEffect(() => { onNewBidRef.current = onNewBid; }, [onNewBid]);
+  useEffect(() => { onNewMessageRef.current = onNewMessage; }, [onNewMessage]);
+  useEffect(() => { onTypingRef.current = onTyping; }, [onTyping]);
+  useEffect(() => { onOfferRef.current = onOffer; }, [onOffer]);
+  useEffect(() => { onAnswerRef.current = onAnswer; }, [onAnswer]);
+  useEffect(() => { onIceCandidateRef.current = onIceCandidate; }, [onIceCandidate]);
+  useEffect(() => { onCallEndRef.current = onCallEnd; }, [onCallEnd]);
+  useEffect(() => { onProposalUpdatedRef.current = onProposalUpdated; }, [onProposalUpdated]);
+  useEffect(() => { onUserJoinedRef.current = onUserJoined; }, [onUserJoined]);
+  useEffect(() => { onCodeUpdateRef.current = onCodeUpdate; }, [onCodeUpdate]);
+  useEffect(() => { onCursorUpdateRef.current = onCursorUpdate; }, [onCursorUpdate]);
 
-  useEffect(() => {
-    onNewMessageRef.current = onNewMessage;
-  }, [onNewMessage]);
-
-  useEffect(() => {
-    onTypingRef.current = onTyping;
-  }, [onTyping]);
-
-  useEffect(() => {
-    onOfferRef.current = onOffer;
-  }, [onOffer]);
-
-  useEffect(() => {
-    onAnswerRef.current = onAnswer;
-  }, [onAnswer]);
-
-  useEffect(() => {
-    onIceCandidateRef.current = onIceCandidate;
-  }, [onIceCandidate]);
-
-  useEffect(() => {
-    onCallEndRef.current = onCallEnd;
-  }, [onCallEnd]);
-
-  useEffect(() => {
-    onProposalUpdatedRef.current = onProposalUpdated;
-  }, [onProposalUpdated]);
-
+  // Register listeners once
   useEffect(() => {
     const socket = getSocketInstance();
     socketRef.current = socket;
 
-    const handleNewBid = (bid) => onNewBidRef.current?.(bid);
-    const handleNewMessage = (msg) => onNewMessageRef.current?.(msg);
-    const handleNewMessageCamel = (msg) => onNewMessageRef.current?.(msg);
-    const handleTyping = (payload) => onTypingRef.current?.(payload);
-    const handleOffer = (payload) => onOfferRef.current?.(payload);
-    const handleAnswer = (payload) => onAnswerRef.current?.(payload);
-    const handleIceCandidate = (payload) => onIceCandidateRef.current?.(payload);
-    const handleCallEnd = (payload) => onCallEndRef.current?.(payload);
-    const handleProposalUpdated = (payload) => onProposalUpdatedRef.current?.(payload);
+    const handlers = {
+      new_bid: (bid) => onNewBidRef.current?.(bid),
+      new_message: (msg) => onNewMessageRef.current?.(msg),
+      newMessage: (msg) => onNewMessageRef.current?.(msg),
+      typing: (payload) => onTypingRef.current?.(payload),
+      webrtc_offer: (payload) => onOfferRef.current?.(payload),
+      webrtc_answer: (payload) => onAnswerRef.current?.(payload),
+      webrtc_ice_candidate: (payload) => onIceCandidateRef.current?.(payload),
+      call_end: (payload) => onCallEndRef.current?.(payload),
+      proposal_updated: (payload) => onProposalUpdatedRef.current?.(payload),
+      'user-joined': (payload) => onUserJoinedRef.current?.(payload),
+      'code-update': (payload) => onCodeUpdateRef.current?.(payload),
+      'cursor-update': (payload) => onCursorUpdateRef.current?.(payload),
+    };
 
-    socket.on('new_bid', handleNewBid);
-    socket.on('new_message', handleNewMessage);
-    socket.on('newMessage', handleNewMessageCamel);
-    socket.on('typing', handleTyping);
-    socket.on('webrtc_offer', handleOffer);
-    socket.on('webrtc_answer', handleAnswer);
-    socket.on('webrtc_ice_candidate', handleIceCandidate);
-    socket.on('call_end', handleCallEnd);
-    socket.on('proposal_updated', handleProposalUpdated);
+    Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler));
 
     return () => {
-      socket.off('new_bid', handleNewBid);
-      socket.off('new_message', handleNewMessage);
-      socket.off('newMessage', handleNewMessageCamel);
-      socket.off('typing', handleTyping);
-      socket.off('webrtc_offer', handleOffer);
-      socket.off('webrtc_answer', handleAnswer);
-      socket.off('webrtc_ice_candidate', handleIceCandidate);
-      socket.off('call_end', handleCallEnd);
-      socket.off('proposal_updated', handleProposalUpdated);
+      Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));
       socketRef.current = null;
     };
   }, []);
 
+  // Auto-join project room
   useEffect(() => {
-    if (!projectId) return undefined;
+    if (!projectId) return;
     const socket = getSocketInstance();
-    socketJoinState.projectId = projectId;
-    socket.emit('join_project', projectId);
-    return undefined;
+    socketJoinState.projectId = String(projectId);
+    if (socket.connected) {
+      socket.emit('join_project', String(projectId));
+      console.log('[Socket] Joined project:', projectId);
+    }
   }, [projectId]);
 
-  const emitBid = (bidData) => {
-    socketRef.current?.emit('submit_bid', { projectId, ...bidData });
-  };
+  // ===== STABILIZED CALLBACKS =====
+  const emitBid = useCallback((bidData) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('submit_bid', { projectId, ...bidData });
+  }, [projectId]);
 
-  const joinProject = (id) => {
-    socketRef.current?.emit('join_project', id);
-  };
+  const joinProject = useCallback((id) => {
+    if (!id || !socketRef.current) return;
+    socketJoinState.projectId = String(id);
+    socketRef.current.emit('join_project', String(id));
+    console.log('[Socket] join_project:', id);
+  }, []);
 
-  const joinConversation = (conversationId) => {
-    if (conversationId) {
-      socketJoinState.conversationId = conversationId;
-      socketRef.current?.emit('join_conversation', conversationId);
-    }
-  };
+  const joinConversation = useCallback((conversationId) => {
+    if (!conversationId || !socketRef.current) return;
+    socketJoinState.conversationId = String(conversationId);
+    socketRef.current.emit('join_conversation', String(conversationId));
+    console.log('[Socket] join_conversation:', conversationId);
+  }, []);
 
-  const joinUser = (userId) => {
-    if (userId) {
-      socketJoinState.userId = String(userId);
-      socketRef.current?.emit('join_user', socketJoinState.userId);
-    }
-  };
+  const joinUser = useCallback((userId) => {
+    if (!userId || !socketRef.current) return;
+    socketJoinState.userId = String(userId);
+    socketRef.current.emit('join_user', socketJoinState.userId);
+    console.log('[Socket] join_user:', socketJoinState.userId);
+  }, []);
 
-  const joinInterview = (roomId) => {
-    if (roomId) {
-      socketJoinState.interviewRoomId = roomId;
-      socketRef.current?.emit('join_interview', roomId);
-    }
-  };
+  const joinInterview = useCallback((roomId) => {
+    if (!roomId || !socketRef.current) return;
+    socketJoinState.interviewRoomId = String(roomId);
+    socketRef.current.emit('join_interview', String(roomId));
+    console.log('[Socket] join_interview:', roomId);
+  }, []);
 
-  const emitMessage = (payload) => {
-    socketRef.current?.emit('send_message', payload);
-  };
+  const joinEditor = useCallback((roomId, userId, userName) => {
+    if (!roomId || !socketRef.current) return;
+    socketJoinState.editorRoomId = String(roomId);
+    socketJoinState.editorUserId = userId ? String(userId) : null;
+    socketJoinState.editorUserName = userName || null;
+    socketRef.current.emit('join-editor', {
+      roomId: String(roomId),
+      userId: userId ? String(userId) : null,
+      userName: userName || null,
+    });
+    console.log('[Socket] join-editor:', roomId);
+  }, []);
 
-  const emitTypingStart = (payload) => {
-    socketRef.current?.emit('typing_start', payload);
-  };
+  const emitCodeChange = useCallback((roomId, code, language) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('code-change', { roomId, code, language });
+  }, []);
 
-  const emitTypingStop = (payload) => {
-    socketRef.current?.emit('typing_stop', payload);
-  };
+  const emitCursorUpdate = useCallback((roomId, cursor, userName) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('cursor-update', { roomId, cursor, userName });
+  }, []);
 
-  const emitOffer = (payload) => {
-    socketRef.current?.emit('webrtc_offer', payload);
-  };
+  const emitMessage = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('send_message', payload);
+  }, []);
 
-  const emitAnswer = (payload) => {
-    socketRef.current?.emit('webrtc_answer', payload);
-  };
+  const emitTypingStart = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('typing_start', payload);
+  }, []);
 
-  const emitIceCandidate = (payload) => {
-    socketRef.current?.emit('webrtc_ice_candidate', payload);
-  };
+  const emitTypingStop = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('typing_stop', payload);
+  }, []);
 
-  const emitCallEnd = (payload) => {
-    socketRef.current?.emit('call_end', payload);
-  };
+  const emitOffer = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('webrtc_offer', payload);
+  }, []);
+
+  const emitAnswer = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('webrtc_answer', payload);
+  }, []);
+
+  const emitIceCandidate = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('webrtc_ice_candidate', payload);
+  }, []);
+
+  const emitCallEnd = useCallback((payload) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('call_end', payload);
+  }, []);
 
   return {
     socket: socketRef,
@@ -210,6 +276,9 @@ export function useSocket(projectId, { onNewBid, onNewMessage, onTyping, onOffer
     joinConversation,
     joinUser,
     joinInterview,
+    joinEditor,
+    emitCodeChange,
+    emitCursorUpdate,
     emitMessage,
     emitTypingStart,
     emitTypingStop,

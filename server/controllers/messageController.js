@@ -343,3 +343,16 @@ export async function addReaction(req, res) {
     return res.status(500).json({ message: 'Failed to add reaction', error: err.message });
   }
 }
+
+export async function getUnreadMessageCount(req, res) {
+  try {
+    const userId = req.user._id || req.user.id;
+    const count = await Message.countDocuments({
+      receiver: new mongoose.Types.ObjectId(userId),
+      read: false,
+    });
+    return res.json({ count, unreadCount: count });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}

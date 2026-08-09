@@ -1,11 +1,11 @@
 // Routes for Contracts
 import { Router } from 'express';
-import { 
-  createContract, 
-  signContract, 
-  markContractCompleted, 
-  updateDispatchStatus, 
-  getMyContracts, 
+import {
+  createContract,
+  signContract,
+  markContractCompleted,
+  updateDispatchStatus,
+  getMyContracts,
   getContractById,
   submitMilestone,
   approveMilestone,

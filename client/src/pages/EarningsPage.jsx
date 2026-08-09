@@ -18,11 +18,11 @@ import api from '../services/authService';
 export default function EarningsPage() {
   const { user } = useAuth();
   const [currency, setCurrency] = useState('USD');
-  const [earnings, setEarnings] = useState({ 
-    totalEarnings: 0, 
-    availableBalance: 0, 
-    totalWithdrawn: 0, 
-    transactions: [] 
+  const [earnings, setEarnings] = useState({
+    totalEarnings: 0,
+    availableBalance: 0,
+    totalWithdrawn: 0,
+    transactions: []
   });
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -32,11 +32,11 @@ export default function EarningsPage() {
       setLoading(true);
       const { data } = await paymentService.getMyEarnings();
       if (!signal?.aborted) {
-        setEarnings(data || { 
-          totalEarnings: 0, 
-          availableBalance: 0, 
-          totalWithdrawn: 0, 
-          transactions: [] 
+        setEarnings(data || {
+          totalEarnings: 0,
+          availableBalance: 0,
+          totalWithdrawn: 0,
+          transactions: []
         });
       }
     } catch (err) {
@@ -64,14 +64,7 @@ export default function EarningsPage() {
       toast.success('Funds successfully withdrawn to your bank account!');
       await loadEarnings();
     } catch (err) {
-      // Mock fallback if route isn't set up yet
-      toast.success('Simulated withdrawal of ' + formatCurrency(earnings.availableBalance / 100) + ' to bank account!');
-      // Perform mock update locally
-      setEarnings(prev => ({
-        ...prev,
-        totalWithdrawn: prev.totalWithdrawn + prev.availableBalance,
-        availableBalance: 0
-      }));
+      toast.error(getApiErrorMessage(err));
     } finally {
       setWithdrawing(false);
     }
@@ -87,7 +80,7 @@ export default function EarningsPage() {
     }));
 
   const tier = user?.subscription?.tier || 'free';
-  
+
   // Calculate commission savings
   const getSavings = () => {
     if (tier === 'free') return 0;
@@ -114,16 +107,16 @@ export default function EarningsPage() {
     <motion.div initial="hidden" animate="visible" variants={pageFade} className="space-y-8 pb-12 font-body">
       <div className="flex justify-end items-center gap-2 mb-4">
         <span className="text-sm font-medium text-[var(--color-text-primary)]">Currency:</span>
-        <select 
-          value={currency} 
+        <select
+          value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="text-sm border border-[var(--color-border-secondary)] rounded-md px-2 py-1 bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none" 
-        > 
-          {Object.keys(CURRENCY_RATES).map((c) => ( 
-            <option key={c} value={c}> 
-              {c} 
-            </option> 
-          ))} 
+          className="text-sm border border-[var(--color-border-secondary)] rounded-md px-2 py-1 bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none"
+        >
+          {Object.keys(CURRENCY_RATES).map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
       </div>
       <motion.section variants={heroReveal} className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-6 items-center rounded-[2rem] bg-white/80 border border-white/20 p-6 shadow-2xl overflow-hidden">
@@ -135,12 +128,12 @@ export default function EarningsPage() {
             <Link to="/projects"><Button variant="outline">Browse Projects</Button></Link>
           </div>
         </div>
-        <motion.div variants={fadeInUp} className="flex justify-center">
+        <motion.div className="flex justify-center">
           <motion.img
             src={PaymentsHero}
             alt="Earnings workflow"
             className="w-full max-w-[520px] rounded-[2rem] shadow-2xl border border-white/20"
-            variants={floatHero}
+
           />
         </motion.div>
       </motion.section>
@@ -219,8 +212,8 @@ export default function EarningsPage() {
               <Card>
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="font-bold text-text">Transaction History</h2>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={handleWithdraw}
                     disabled={withdrawing || earnings.availableBalance <= 0}
                   >
@@ -255,19 +248,22 @@ export default function EarningsPage() {
                             <td className="py-3 text-muted">
                               {tx.milestone || tx.description || 'Earnings payout'}
                             </td>
-                            <td className={`py-3 font-semibold ${
-                              isPayout ? 'text-green-600' : isCommission ? 'text-red-500' : 'text-indigo-600'
-                            }`}>
+                            <td className={`py-3 font-semibold ${isPayout ? 'text-green-600' : isCommission ? 'text-red-500' : 'text-indigo-600'
+                              }`}>
                               {isCommission || isWithdrawal ? '-' : '+'}{formatCurrencyUtil(tx.amount / 100, currency)}
                             </td>
                             <td className="py-3 text-muted text-xs">{formatDate(tx.createdAt)}</td>
                             <td className="py-3">
-                              <Badge color={
-                                tx.status === 'completed' || tx.status === 'released' ? 'success' :
-                                tx.status === 'pending' ? 'warning' : 'muted'
-                              }>
-                                {tx.status || 'completed'}
-                              </Badge>
+                              <span
+                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tx.status === "completed" || tx.status === "released"
+                                    ? "bg-green-100 text-green-700"
+                                    : tx.status === "pending"
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "bg-gray-100 text-gray-700"
+                                  }`}
+                              >
+                                {tx.status || "completed"}
+                              </span>
                             </td>
                           </tr>
                         );

@@ -17,6 +17,9 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import { getPlatformStats } from './controllers/statsController.js';
+import geminiRoutes from "./routes/geminiRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
+import collaborationRoutes from "./routes/collaborationRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -64,7 +67,9 @@ app.use('/api/interviews', interviewRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
-
+app.use('/api/gemini', geminiRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/collaboration', collaborationRoutes);
 app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(500).json({ message: err.message || 'Internal server error' });

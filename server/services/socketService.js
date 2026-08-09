@@ -114,6 +114,25 @@ export function initSocketHandlers(io) {
       });
     });
 
+    // Real-Time Collaborative Coding Socket Handlers:
+    socket.on('join-editor', ({ roomId, userId, userName }) => {
+      if (!roomId) return;
+      const roomName = `editor:${roomId}`;
+      socket.join(roomName);
+      socket.to(roomName).emit('user-joined', { userId, userName });
+      console.log(`[Socket] User ${userName || userId} joined editor session: ${roomId}`);
+    });
+
+    socket.on('code-change', ({ roomId, code, language }) => {
+      if (!roomId) return;
+      socket.to(`editor:${roomId}`).emit('code-update', { code, language });
+    });
+
+    socket.on('cursor-update', ({ roomId, cursor, userName }) => {
+      if (!roomId) return;
+      socket.to(`editor:${roomId}`).emit('cursor-update', { cursor, userName });
+    });
+
     socket.on('disconnect', () => {
       // Clean up if needed
     });

@@ -37,7 +37,6 @@ export async function register(req, res) {
   }
 }
 
-// Authenticate user credentials and return user data with token
 /** Authenticates user credentials and returns their profile with an auth token. */
 export async function login(req, res) {
   try {

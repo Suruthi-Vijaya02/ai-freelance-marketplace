@@ -101,9 +101,19 @@ export const contractService = {
   getMyContracts: () => api.get('/contracts/my'),
   getById: (id) => api.get(`/contracts/${id}`),
   create: (data) => api.post('/contracts', data),
-  sign: (id) => api.patch(`/contracts/${id}/sign`),
+  sign: (id) => api.post(`/contracts/${id}/sign`),
   markCompleted: (id) => api.patch(`/contracts/${id}/complete`),
   updateDispatchStatus: (id, status) => api.patch(`/contracts/${id}/dispatch`, { dispatchStatus: status }),
+  submitMilestone: (contractId, milestoneId, data) =>
+    api.put(
+      `/contracts/${contractId}/milestones/${milestoneId}/submit`,
+      data
+    ),
+  approveMilestone: (contractId, milestoneId) =>
+    api.patch(`/contracts/${contractId}/milestones/${milestoneId}/approve`),
+  releaseMilestone: (contractId, milestoneId) =>
+    api.patch(`/contracts/${contractId}/milestones/${milestoneId}/release`),
+  openDispute: (id) => api.post(`/contracts/${id}/dispute`),
 };
 
 // Message services
@@ -123,7 +133,7 @@ export const paymentService = {
   createEscrow: (data) => api.post('/payments/escrow', data),
   releasePayment: (milestoneId) => api.post(`/payments/release/${milestoneId}`),
   requestPayout: (data) => api.post('/payments/payout', data),
-  fundMilestone: (data) => api.post('/payments/fund', data),
+  fundMilestone: (data) => api.post('/payments/escrow', data),
 };
 
 // User services
@@ -136,10 +146,19 @@ export const userService = {
   getReviews: (id) => api.get(`/users/${id}/reviews`),
   updateProfile: (data) => api.put('/users/profile', data),
   updateAvailability: (id, data) => api.put(`/users/${id}/availability`, data),
-  uploadResume: (formData) =>
-    api.post('/users/uploadResume', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadResume: (formData, onProgress) =>
+    api.post('/users/uploadResume', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+        ? (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          onProgress(percentCompleted);
+        }
+        : undefined,
+    }),
   getAiSuggestions: () => api.get('/users/ai-suggestions'),
   applyAiSuggestions: (data) => api.post('/users/ai-suggestions/apply', data),
+  addReview: (userId, data) => api.post(`/users/${userId}/reviews`, data),
 };
 
 // Notification services

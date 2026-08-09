@@ -1,6 +1,7 @@
 import Contract from '../models/Contract.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import Project from '../models/Project.js';
 import { generateBlockchainHash } from '../services/blockchainService.js';
 import Message from '../models/Message.js';
 import { buildConversationId } from './messageController.js';
@@ -16,7 +17,7 @@ export async function getMyContracts(req, res) {
       .populate('client', 'name avatar')
       .populate('freelancer', 'name avatar title')
       .sort({ createdAt: -1 });
-    
+
     return res.json(contracts);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -30,17 +31,17 @@ export async function getContractById(req, res) {
       .populate('project', 'title budget status description')
       .populate('client', 'name avatar email')
       .populate('freelancer', 'name avatar title');
-    
+
     if (!contract) return res.status(404).json({ message: 'Contract not found' });
-    
+
     const userId = req.user._id.toString();
-    const isParty = 
-      contract.client._id.toString() === userId || 
+    const isParty =
+      contract.client._id.toString() === userId ||
       contract.freelancer._id.toString() === userId ||
       req.user.role === 'admin';
-    
+
     if (!isParty) return res.status(403).json({ message: 'Not authorized' });
-    
+
     return res.json(contract);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -51,6 +52,12 @@ export async function getContractById(req, res) {
 export async function createContract(req, res) {
   try {
     const { project, freelancer, terms, amount, contractTemplateId, escrowId } = req.body;
+
+    const existing = await Contract.findOne({ project });
+    if (existing) {
+      return res.status(400).json({ message: 'Contract already exists for this project' });
+    }
+
     const blockchainHash = generateBlockchainHash({ project, freelancer, terms, amount });
 
     const contract = await Contract.create({
@@ -60,7 +67,10 @@ export async function createContract(req, res) {
       terms,
       amount,
       blockchainHash,
-      status: 'active',
+      status: 'pending_signature',
+      dispatchStatus: 'pending',
+      totalReleased: 0,
+      totalInEscrow: 0,
       ...(contractTemplateId && { contractTemplateId }),
       ...(escrowId && { escrowId }),
     });
@@ -90,6 +100,11 @@ export async function createContract(req, res) {
       console.warn('Failed to auto-create conversation for contract:', e.message);
     }
 
+    await createSystemMessage(req, {
+      contract,
+      content: '📄 Contract created. Pending signatures from both parties.'
+    });
+
     return res.status(201).json(contract);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -105,16 +120,39 @@ export async function signContract(req, res) {
     const isClient = contract.client.toString() === req.user._id.toString();
     const isFreelancer = contract.freelancer.toString() === req.user._id.toString();
 
+    if (isClient && (contract.clientSignature?.signed || contract.signatures?.client?.signed)) {
+      return res.status(400).json({ message: 'Client already signed this contract' });
+    }
+    if (isFreelancer && (contract.freelancerSignature?.signed || contract.signatures?.freelancer?.signed)) {
+      return res.status(400).json({ message: 'Freelancer already signed this contract' });
+    }
+
     if (isClient) {
       contract.clientSignature = { signed: true, signedAt: new Date() };
+      if (!contract.signatures) contract.signatures = {};
+      contract.signatures.client = { signed: true, signedAt: new Date() };
     } else if (isFreelancer) {
       contract.freelancerSignature = { signed: true, signedAt: new Date() };
+      if (!contract.signatures) contract.signatures = {};
+      contract.signatures.freelancer = { signed: true, signedAt: new Date() };
     } else {
       return res.status(403).json({ message: 'Not authorized to sign this contract' });
     }
 
+    const clientSigned = contract.clientSignature?.signed || contract.signatures?.client?.signed;
+    const freelancerSigned = contract.freelancerSignature?.signed || contract.signatures?.freelancer?.signed;
+
+    if (clientSigned && freelancerSigned) {
+      contract.status = 'active';
+      contract.dispatchStatus = 'sent';
+    }
+
     await contract.save();
-    return res.json(contract);
+    const populated = await Contract.findById(contract._id)
+      .populate('project', 'title budget status')
+      .populate('client', 'name avatar')
+      .populate('freelancer', 'name avatar title');
+    return res.json(populated);
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -133,11 +171,31 @@ export async function markContractCompleted(req, res) {
 
     if (!isParty) return res.status(403).json({ message: 'Not authorized' });
 
+    const unfinished = (contract.milestones || []).filter((m) => m.status !== 'released');
+    if (unfinished.length > 0 && req.user.role !== 'admin') {
+      return res.status(400).json({
+        message: 'All milestones must be released before completing the contract',
+      });
+    }
+
     contract.isCompleted = true;
     contract.status = 'completed';
     contract.completedAt = new Date();
+    contract.dispatchStatus = 'delivered';
     await contract.save();
-    return res.json(contract);
+
+    await Project.findByIdAndUpdate(contract.project, {
+      status: 'completed',
+      completedAt: new Date(),
+      endDate: new Date(),
+    }).catch(() => { });
+
+    const populated = await Contract.findById(contract._id)
+      .populate('project', 'title budget status')
+      .populate('client', 'name avatar')
+      .populate('freelancer', 'name avatar title');
+
+    return res.json(populated);
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -224,7 +282,7 @@ export async function submitMilestone(req, res) {
     const contract = await Contract.findById(id);
     if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
 
-    if (contract.freelancer.toString() !== req.user._id.toString()) {
+    if ((contract.freelancer._id || contract.freelancer).toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Only freelancer can submit work' });
     }
 
@@ -247,6 +305,15 @@ export async function submitMilestone(req, res) {
       content: `📎 Freelancer submitted work for '${milestone.title}'. Awaiting your review.`
     });
 
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${contract.client}`).emit('milestone_submitted', {
+        contractId: contract._id,
+        milestoneId,
+        milestoneTitle: milestone.title
+      });
+    }
+
     return res.json({ success: true, data: milestone });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -261,7 +328,7 @@ export async function approveMilestone(req, res) {
     const contract = await Contract.findById(id);
     if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
 
-    if (contract.client.toString() !== req.user._id.toString()) {
+    if ((contract.client._id || contract.client).toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Only client can approve' });
     }
 
@@ -276,6 +343,11 @@ export async function approveMilestone(req, res) {
     milestone.approvedAt = new Date();
 
     await contract.save();
+
+    await createSystemMessage(req, {
+      contract,
+      content: `✅ Client approved milestone '${milestone.title}'. Ready for payment release.`
+    });
 
     const io = req.app.get('io');
     if (io) {
@@ -303,15 +375,19 @@ export async function releaseMilestone(req, res) {
 
     if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
 
-    if (contract.client.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    const clientId = (contract.client._id || contract.client).toString();
+    if (clientId !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ success: false, message: 'Only client can release funds' });
     }
 
     const milestone = contract.milestones.id(milestoneId);
     if (!milestone) return res.status(404).json({ success: false, message: 'Milestone not found' });
 
-    if (milestone.status !== 'approved' && milestone.status !== 'submitted' && milestone.status !== 'funded') {
-      return res.status(400).json({ success: false, message: 'Milestone must be funded/submitted/approved' });
+    if (milestone.status === 'released') {
+      return res.status(400).json({ success: false, message: 'Milestone already released' });
+    }
+    if (milestone.status !== 'approved') {
+      return res.status(400).json({ success: false, message: 'Milestone must be approved before release' });
     }
 
     // Stripe capture simulation if secret key and escrow transaction exists
@@ -359,7 +435,7 @@ export async function releaseMilestone(req, res) {
       status: 'completed',
       description: `Payout for ${milestone.title}`,
       metadata: { commissionDeducted: commissionAmount, tier },
-      
+
       // compatibility fields:
       projectId: contract.project,
       client: contract.client,
@@ -380,7 +456,7 @@ export async function releaseMilestone(req, res) {
         project: contract.project,
         status: 'completed',
         description: `Platform commission (${Math.round(commissionRate * 100)}%)`,
-        
+
         // compatibility fields:
         projectId: contract.project,
         client: contract.client,
@@ -409,14 +485,14 @@ export async function releaseMilestone(req, res) {
       });
     }
 
-    return res.json({ 
-      success: true, 
-      data: { 
-        milestone, 
-        payout: freelancerPayout, 
+    return res.json({
+      success: true,
+      data: {
+        milestone,
+        payout: freelancerPayout,
         commission: commissionAmount,
-        transaction: payoutTx 
-      } 
+        transaction: payoutTx
+      }
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -429,8 +505,8 @@ export async function openDispute(req, res) {
     const contract = await Contract.findById(req.params.id);
     if (!contract) return res.status(404).json({ success: false, message: 'Contract not found' });
 
-    const isParty = 
-      contract.client.toString() === req.user._id.toString() || 
+    const isParty =
+      contract.client.toString() === req.user._id.toString() ||
       contract.freelancer.toString() === req.user._id.toString();
 
     if (!isParty) return res.status(403).json({ success: false, message: 'Not authorized' });
@@ -443,8 +519,20 @@ export async function openDispute(req, res) {
       content: `⚠️ Dispute opened for contract.`
     });
 
+    const io = req.app.get('io');
+    if (io) {
+      const otherParty = contract.client.toString() === req.user._id.toString()
+        ? contract.freelancer
+        : contract.client;
+      io.to(`user:${otherParty}`).emit('contract_disputed', {
+        contractId: contract._id,
+        status: 'disputed'
+      });
+    }
+
     return res.json({ success: true, data: contract });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 }
+

@@ -70,7 +70,7 @@ export default function PaymentsPage() {
             <Link to="/projects"><Button variant="outline">Browse Projects</Button></Link>
           </div>
         </div>
-        <motion.div variants={fadeInUp} className="flex justify-center">
+        <motion.div className="flex justify-center">
           <motion.img
             src={PaymentsHero}
             alt="Payments workflow"
@@ -89,76 +89,76 @@ export default function PaymentsPage() {
           </p>
         </div>
 
-      {isClient && projects.length > 0 && (
-        <Card>
-          <h2 className="font-bold text-text mb-4">Your Projects</h2>
-          <div className="space-y-2">
-            {projects.map((p) => (
-              <Link
-                key={p._id}
-                to={`/payments/${p._id}`}
-                className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border hover:border-primary/30 transition-colors"
-              >
-                <div>
-                  <p className="font-medium text-text">{p.title}</p>
-                  <p className="text-sm text-muted">{formatCurrency(p.budget)} · {p.status}</p>
-                </div>
-                <Button size="sm" variant="outline">Manage Escrow</Button>
-              </Link>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      <Card>
-        <div className="flex items-center gap-2 mb-4">
-          <CreditCard className="w-5 h-5 text-primary" />
-          <h2 className="font-bold text-text">Transaction History</h2>
-        </div>
-        {transactions.length === 0 ? (
-          <div className="text-center py-10">
-            <Lock className="w-10 h-10 text-muted mx-auto mb-3" />
-            <p className="text-muted">No transactions yet.</p>
-            {isClient && (
-              <Link to="/create-project" className="inline-block mt-4">
-                <Button size="sm">Create a Project</Button>
-              </Link>
-            )}
-            {isFreelancer && (
-              <Link to="/projects" className="inline-block mt-4">
-                <Button size="sm">Browse Projects</Button>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted border-b border-border">
-                  <th className="text-left py-2">Milestone</th>
-                  <th className="text-left py-2">Amount</th>
-                  <th className="text-left py-2">Status</th>
-                  <th className="text-left py-2">Date</th>
-                  <th className="text-left py-2">Method</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx._id} className="border-b border-border/50">
-                    <td className="py-3 text-text">{tx.milestone || '—'}</td>
-                    <td className="py-3 text-secondary font-medium">{formatCurrency(tx.amount)}</td>
-                    <td className="py-3">
-                      <Badge color={statusColors[tx.status] || 'muted'}>{tx.status}</Badge>
-                    </td>
-                    <td className="py-3 text-muted">{formatDate(tx.releasedAt || tx.createdAt)}</td>
-                    <td className="py-3 text-muted capitalize">{tx.paymentMethod || 'stripe'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {isClient && projects.length > 0 && (
+          <Card>
+            <h2 className="font-bold text-text mb-4">Your Projects</h2>
+            <div className="space-y-2">
+              {projects.map((p) => (
+                <Link
+                  key={p._id}
+                  to={`/payments/${p._id}`}
+                  className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border hover:border-primary/30 transition-colors"
+                >
+                  <div>
+                    <p className="font-medium text-text">{p.title}</p>
+                    <p className="text-sm text-muted">{formatCurrency(p.budget)} · {p.status}</p>
+                  </div>
+                  <Button size="sm" variant="outline">Manage Escrow</Button>
+                </Link>
+              ))}
+            </div>
+          </Card>
         )}
-      </Card>
+
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="w-5 h-5 text-primary" />
+            <h2 className="font-bold text-text">Transaction History</h2>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="text-center py-10">
+              <Lock className="w-10 h-10 text-muted mx-auto mb-3" />
+              <p className="text-muted">No transactions yet.</p>
+              {isClient && (
+                <Link to="/create-project" className="inline-block mt-4">
+                  <Button size="sm">Create a Project</Button>
+                </Link>
+              )}
+              {isFreelancer && (
+                <Link to="/projects" className="inline-block mt-4">
+                  <Button size="sm">Browse Projects</Button>
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-muted border-b border-border">
+                    <th className="text-left py-2">Milestone</th>
+                    <th className="text-left py-2">Amount</th>
+                    <th className="text-left py-2">Status</th>
+                    <th className="text-left py-2">Date</th>
+                    <th className="text-left py-2">Method</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => (
+                    <tr key={tx._id} className="border-b border-border/50">
+                      <td className="py-3 text-text">{tx.milestone || '—'}</td>
+                      <td className="py-3 text-secondary font-medium">{formatCurrency(tx.amount)}</td>
+                      <td className="py-3">
+                        <Badge color={statusColors[tx.status] || 'muted'}>{tx.status}</Badge>
+                      </td>
+                      <td className="py-3 text-muted">{formatDate(tx.releasedAt || tx.createdAt)}</td>
+                      <td className="py-3 text-muted capitalize">{tx.paymentMethod || 'stripe'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
     </motion.div>
   );

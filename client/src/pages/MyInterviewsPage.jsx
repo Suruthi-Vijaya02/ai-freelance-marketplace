@@ -69,7 +69,7 @@ export default function MyInterviewsPage() {
             {isFreelancer ? 'Your Interview Schedule' : 'Prepare for your next conversation.'}
           </h1>
           <p className="text-mid max-w-2xl">
-            {isFreelancer 
+            {isFreelancer
               ? 'Keep track of your upcoming interviews with clients and manage your availability.'
               : 'See upcoming interviews, confirm availability, and keep your hiring rhythm smooth with a dedicated interview workspace.'}
           </p>
@@ -78,12 +78,12 @@ export default function MyInterviewsPage() {
             <Link to="/messages"><Button variant="outline">Open Messages</Button></Link>
           </div>
         </div>
-        <motion.div variants={fadeInUp} className="flex justify-center">
+        <motion.div className="flex justify-center">
           <motion.img
             src={InterviewHero}
             alt="Interview workflow"
             className="w-full max-w-[520px] rounded-[2rem] shadow-2xl border border-white/20"
-            variants={floatHero}
+
           />
         </motion.div>
       </motion.section>
@@ -113,9 +113,9 @@ export default function MyInterviewsPage() {
             return (
               <Card key={iv._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-primary/30 transition-colors">
                 <div className="flex items-center gap-4">
-                  <img 
-                    src={partner?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner?.name || 'user'}`} 
-                    alt="" 
+                  <img
+                    src={partner?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner?.name || 'user'}`}
+                    alt=""
                     className="w-12 h-12 rounded-full border border-border"
                   />
                   <div>

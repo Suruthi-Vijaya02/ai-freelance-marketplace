@@ -7,12 +7,14 @@ import {
   createConversation,
   editMessage,
   addReaction,
+  getUnreadMessageCount,
 } from '../controllers/messageController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
 // Messaging routes — real-time chat and conversation management
 const router = Router();
 
+router.get('/unread-count', authMiddleware, getUnreadMessageCount);
 router.get('/conversations', authMiddleware, getConversations);
 router.get('/:conversationId', authMiddleware, getMessages);
 router.post('/', authMiddleware, sendMessage);

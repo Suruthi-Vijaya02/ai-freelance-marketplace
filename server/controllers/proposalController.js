@@ -219,6 +219,43 @@ export async function updateProposalStatus(req, res) {
         { project: project._id, _id: { $ne: proposal._id } },
         { status: 'rejected' }
       );
+
+      const Contract = (await import('../models/Contract.js')).default;
+      const { generateBlockchainHash } = await import('../services/blockchainService.js');
+      
+      const amountInCents = Math.round((proposal.price || 0) * 100);
+      const terms = `Contract for project: ${project.title}. Timeline: ${proposal.timeline}`;
+      const blockchainHash = generateBlockchainHash({ project: project._id, freelancer: proposal.freelancer, terms, amount: amountInCents });
+      
+      await Contract.create({
+        project: project._id,
+        client: project.client,
+        freelancer: proposal.freelancer,
+        terms,
+        amount: amountInCents,
+        blockchainHash,
+        status: 'pending_signature',
+        clientSignature: { signed: false },
+        freelancerSignature: { signed: false },
+        signatures: {
+          client: { signed: false },
+          freelancer: { signed: false },
+        },
+        milestones: (project.milestones?.length
+          ? project.milestones.map((m) => ({
+              title: m.title || 'Milestone',
+              description: m.description || '',
+              amount: Math.round(Number(m.amount || 0) * (Number(m.amount) < 1000 ? 100 : 1)) || amountInCents,
+              status: 'pending',
+              deadline: m.dueDate || m.deadline,
+            }))
+          : [{
+              title: 'Project Delivery',
+              description: proposal.coverLetter?.substring(0, 200) || 'Deliver final work',
+              amount: amountInCents,
+              status: 'pending',
+            }]),
+      });
     }
 
     const populated = await Proposal.findById(proposal._id)
@@ -240,3 +277,36 @@ export async function updateProposalStatus(req, res) {
     return res.status(500).json({ message: err.message });
   }
 }
+
+export async function withdrawProposal(req, res) {
+  try {
+    const proposal = await Proposal.findOne({
+      _id: req.params.id,
+      freelancer: req.user._id,
+    });
+
+    if (!proposal) return res.status(404).json({ message: 'Proposal not found' });
+
+    if (proposal.status === 'accepted') {
+      return res.status(400).json({ message: 'Accepted proposals cannot be withdrawn' });
+    }
+
+    await Proposal.findByIdAndDelete(proposal._id);
+    await Project.findByIdAndUpdate(proposal.project, { $inc: { proposalsCount: -1 } }).catch(() => {});
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project:${proposal.project}`).emit('proposal_updated', {
+        id: proposal._id.toString(),
+        projectId: proposal.project.toString(),
+        status: 'withdrawn',
+        freelancerId: req.user._id.toString(),
+      });
+    }
+
+    return res.json({ message: 'Proposal withdrawn successfully', proposalId: proposal._id });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+

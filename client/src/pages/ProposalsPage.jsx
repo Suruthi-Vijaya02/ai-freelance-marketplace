@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { 
-  FileText, 
-  MessageSquare, 
-  Check, 
-  X, 
-  Clock, 
+import {
+  FileText,
+  MessageSquare,
+  Check,
+  X,
+  Clock,
   DollarSign,
   ArrowRight,
   Search,
@@ -140,13 +140,13 @@ export default function ProposalsPage() {
       ) : (
         <motion.div variants={stagger} className="space-y-4">
           {proposals.map((proposal) => (
-            <motion.div key={proposal._id} variants={fadeInUp}>
+            <motion.div key={proposal._id}>
               <Card className="overflow-hidden border-border/50 hover:border-primary/30 transition-colors">
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Freelancer Info */}
                   <div className="md:w-64 shrink-0 flex flex-col items-center text-center space-y-3 p-2">
-                    <img 
-                      src={proposal.freelancer?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${proposal.freelancer?.name || 'user'}`} 
+                    <img
+                      src={proposal.freelancer?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${proposal.freelancer?.name || 'user'}`}
                       alt={proposal.freelancer?.name}
                       className="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover"
                     />
@@ -158,9 +158,9 @@ export default function ProposalsPage() {
                       <span className="text-sm font-bold">★ 4.9</span>
                       <span className="text-[10px] text-muted">(12 reviews)</span>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-primary"
                       onClick={() => handleMessage(proposal.freelancer?._id || proposal.freelancer)}
                     >
@@ -204,19 +204,19 @@ export default function ProposalsPage() {
                           </div>
                         )}
                       </div>
-                      
+
                       {proposal.status === 'pending' && (
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="border-red-200 text-red-600 hover:bg-red-50"
                             disabled={processingId === proposal._id}
                             onClick={() => handleReject(proposal._id)}
                           >
                             <X className="w-4 h-4 mr-1.5" /> Decline
                           </Button>
-                          <Button 
+                          <Button
                             size="sm"
                             disabled={processingId === proposal._id}
                             onClick={() => handleAccept(proposal._id)}

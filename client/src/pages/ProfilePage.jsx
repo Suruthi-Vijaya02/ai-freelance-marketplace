@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [showHireModal, setShowHireModal] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [resumeUploading, setResumeUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [applyingAi, setApplyingAi] = useState(false);
   const resumeInputRef = useRef(null);
 
@@ -121,17 +122,29 @@ export default function ProfilePage() {
       return;
     }
     setResumeUploading(true);
+    setUploadProgress(0);
     try {
       const form = new FormData();
       form.append('resume', file);
-      const { data } = await userService.uploadResume(form);
-      setAiSuggestions(data.aiSuggestions || null);
-      if (data.user) setProfile(data.user);
+      const { data } = await userService.uploadResume(form, (p) => setUploadProgress(p));
+      const suggestions = {
+        ...(data.aiSuggestions || {}),
+        skills: data.skills || data.aiSuggestions?.skills || [],
+        bio: data.bio || data.aiSuggestions?.bio || '',
+        experienceKeywords: data.experienceKeywords || data.aiSuggestions?.experienceKeywords || [],
+        generatedAt: data.aiSuggestions?.generatedAt || new Date().toISOString(),
+      };
+      setAiSuggestions(suggestions);
+      if (data.user) {
+        setProfile(data.user);
+        if (authUser) login(data.user, localStorage.getItem('svr_token'));
+      }
       toast.success('Resume uploaded! AI suggestions are ready.');
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
       setResumeUploading(false);
+      setUploadProgress(0);
       if (resumeInputRef.current) resumeInputRef.current.value = '';
     }
   };
@@ -149,6 +162,7 @@ export default function ProfilePage() {
           bio: data.user.bio || prev.bio,
         }));
       }
+      setAiSuggestions(null);
       toast.success('AI suggestions applied!');
     } catch (err) {
       toast.error(getApiErrorMessage(err));
@@ -452,8 +466,16 @@ export default function ProfilePage() {
               onClick={() => resumeInputRef.current?.click()}
             >
               <Upload className="w-4 h-4" />
-              {resumeUploading ? 'Uploading...' : (profile?.resumeUrl ? 'Re-upload Resume' : 'Upload Resume')}
+              {resumeUploading ? `Uploading... ${uploadProgress}%` : (profile?.resumeUrl ? 'Re-upload Resume' : 'Upload Resume')}
             </Button>
+            {resumeUploading && (
+              <div className="mt-3 h-2 w-full bg-border rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            )}
             {profile?.resumeUrl && !resumeUploading && (
               <p className="text-xs text-muted mt-2 flex items-center gap-1">
                 <Check className="w-3 h-3 text-success" /> Resume on file
@@ -476,20 +498,12 @@ export default function ProfilePage() {
 
           {aiSuggestions.skills?.length > 0 && (
             <div className="mb-4">
-              <p className="text-sm font-medium text-text mb-2">Suggested Skills</p>
+              <p className="text-sm font-medium text-text mb-2">Suggested Skills (Extracted)</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {aiSuggestions.skills.map((s) => (
                   <span key={s} className="px-2 py-1 rounded-full text-xs bg-primary/15 text-primary border border-primary/25">{s}</span>
                 ))}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={applyingAi}
-                onClick={() => handleApplySuggestions({ acceptSkills: true, acceptBio: false })}
-              >
-                <Check className="w-3 h-3" /> Accept Skills
-              </Button>
             </div>
           )}
 
@@ -499,28 +513,11 @@ export default function ProfilePage() {
               <p className="text-sm text-muted italic leading-relaxed bg-surface rounded-lg p-3 border border-border">
                 &ldquo;{aiSuggestions.bio}&rdquo;
               </p>
-              <div className="flex gap-2 mt-3">
-                <Button
-                  size="sm"
-                  disabled={applyingAi}
-                  onClick={() => handleApplySuggestions({ acceptSkills: false, acceptBio: true })}
-                >
-                  <Check className="w-3 h-3" /> Use this Bio
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={applyingAi}
-                  onClick={() => handleApplySuggestions({ acceptSkills: true, acceptBio: true })}
-                >
-                  <Sparkles className="w-3 h-3" /> Apply All
-                </Button>
-              </div>
             </div>
           )}
 
           {aiSuggestions.experienceKeywords?.length > 0 && (
-            <div>
+            <div className="mb-6">
               <p className="text-sm font-medium text-text mb-2">Detected Experience Signals</p>
               <div className="flex flex-wrap gap-2">
                 {aiSuggestions.experienceKeywords.map((kw) => (
@@ -529,6 +526,38 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+
+          <div className="flex flex-wrap gap-2 pt-4 border-t border-border/50">
+            {aiSuggestions.skills?.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={applyingAi}
+                onClick={() => handleApplySuggestions({ acceptSkills: true, acceptBio: false })}
+              >
+                <Check className="w-3 h-3" /> Accept Skills
+              </Button>
+            )}
+            {aiSuggestions.bio && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={applyingAi}
+                onClick={() => handleApplySuggestions({ acceptSkills: false, acceptBio: true })}
+              >
+                <Check className="w-3 h-3" /> Use this Bio
+              </Button>
+            )}
+            {(aiSuggestions.skills?.length > 0 || aiSuggestions.bio) && (
+              <Button
+                size="sm"
+                disabled={applyingAi}
+                onClick={() => handleApplySuggestions({ acceptSkills: true, acceptBio: true })}
+              >
+                <Sparkles className="w-3 h-3" /> {applyingAi ? 'Applying...' : 'Accept AI Suggestions'}
+              </Button>
+            )}
+          </div>
         </Card>
       )}
 

@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Review from '../models/Review.js';
 import { parseResumeText, parseAndEnrichResume } from '../services/aiMatchingService.js';
 import { extractTextFromFile } from '../services/resumeExtractorService.js';
+import { parseResumeWithGemini } from '../services/aiService.js';
 
 export async function getProfile(req, res) {
   try {
@@ -147,6 +148,39 @@ export async function getUserReviews(req, res) {
   }
 }
 
+export async function addReview(req, res) {
+  try {
+    const { rating, comment, projectId } = req.body;
+    const revieweeId = req.params.id;
+    const reviewerId = req.user._id;
+
+    if (!rating || !revieweeId || !projectId) {
+      return res.status(400).json({ message: 'Rating, reviewee, and project are required' });
+    }
+
+    const review = await Review.create({
+      project: projectId,
+      reviewer: reviewerId,
+      reviewee: revieweeId,
+      rating,
+      comment,
+    });
+
+    const user = await User.findById(revieweeId);
+    if (user) {
+      const allReviews = await Review.find({ reviewee: revieweeId });
+      const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+      user.rating = Math.round(avgRating * 10) / 10;
+      user.totalReviews = allReviews.length;
+      await user.save();
+    }
+
+    return res.status(201).json(review);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+
 // Upload resume file, extract text, run AI parser, store results
 export async function uploadResume(req, res) {
   try {
@@ -157,13 +191,35 @@ export async function uploadResume(req, res) {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Extract text from the uploaded file
+    // Extract text from the uploaded file (pdf-parse v2 PDFParse.getText)
     const resumeText = await extractTextFromFile(req.file.path);
 
-    // Run AI enrichment pipeline
-    const { skills, experienceKeywords, bio } = parseAndEnrichResume(resumeText);
+    console.log('[uploadResume] 1. resume text length:', resumeText?.length || 0);
+    console.log('[uploadResume] 2. first 300 characters of extracted text:', (resumeText || '').substring(0, 300));
 
-    // Persist file path, extracted text, and AI suggestions
+    let geminiCalled = false;
+    let geminiResult = { success: false, data: null, error: null, source: 'skipped' };
+
+    if ((resumeText || '').trim().length >= 50) {
+      geminiCalled = true;
+      geminiResult = await parseResumeWithGemini(resumeText, {
+        role: user.role,
+        currentTitle: user.title,
+        currentSkills: user.skills,
+      });
+    }
+
+    console.log('[uploadResume] 3. whether Gemini was called:', geminiCalled);
+    console.log('[uploadResume] 4. Gemini raw response:', JSON.stringify(geminiResult));
+
+    const fallback = parseAndEnrichResume(resumeText || '');
+    const parsed = geminiResult.success ? geminiResult.data : fallback;
+    const skills = parsed.skills || [];
+    const experienceKeywords = parsed.experienceKeywords || [];
+    const bio = parsed.bio || fallback.bio || '';
+
+    console.log('[uploadResume] 5. parsed JSON:', JSON.stringify({ skills, bio, experienceKeywords }));
+
     user.resumeUrl = req.file.path;
     user.resumeText = resumeText;
     user.aiSuggestions = {
@@ -173,6 +229,8 @@ export async function uploadResume(req, res) {
       generatedAt: new Date(),
     };
 
+    console.log('[uploadResume] 6. saved aiSuggestions:', JSON.stringify(user.aiSuggestions));
+
     await user.save();
 
     const saved = await User.findById(user._id).select('-password');
@@ -180,6 +238,10 @@ export async function uploadResume(req, res) {
       message: 'Resume uploaded and parsed successfully',
       resumeUrl: user.resumeUrl,
       aiSuggestions: user.aiSuggestions,
+      skills,
+      bio,
+      experienceKeywords,
+      aiSource: geminiResult.success ? 'gemini' : 'fallback',
       user: saved,
     });
   } catch (err) {
@@ -224,11 +286,30 @@ export async function applyAiSuggestions(req, res) {
       user.freelancerProfile.bio = user.aiSuggestions.bio;
     }
 
+    if (acceptSkills === true && user.aiSuggestions.experienceKeywords?.length) {
+      if (!user.freelancerProfile) user.freelancerProfile = {};
+      const existingExp = user.freelancerProfile.experience || [];
+      if (!existingExp.length) {
+        user.freelancerProfile.experience = [{
+          title: user.title || 'Professional Experience',
+          company: '',
+          years: user.aiSuggestions.experienceKeywords.length,
+          description: user.aiSuggestions.experienceKeywords.join(', '),
+        }];
+      }
+    }
+
     user.syncRoleProfile();
     await user.save();
 
     const saved = await User.findById(user._id).select('-password');
-    return res.json({ message: 'AI suggestions applied', user: saved });
+    return res.json({
+      message: 'AI suggestions applied',
+      user: saved,
+      applied: true,
+      skills: saved.skills,
+      bio: saved.bio,
+    });
   } catch (err) {
     console.error('applyAiSuggestions error:', err);
     return res.status(500).json({ message: err.message });

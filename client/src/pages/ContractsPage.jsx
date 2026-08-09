@@ -1,46 +1,95 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ClipboardCheck, 
-  Shield, 
-  ArrowRight, 
-  CheckCircle2, 
-  Clock, 
-  AlertCircle, 
-  MessageSquare, 
-  Copy, 
-  ExternalLink, 
+import {
+  ClipboardCheck,
+  Shield,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  MessageSquare,
+  Copy,
+  ExternalLink,
   Wallet,
   X,
   Send,
   CreditCard,
   Lock,
   DollarSign,
-  Zap
+  Zap,
+  FileText,
+  Paperclip
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import { useAuth } from '../context/AuthContext';
-import { contractService, paymentService, projectService } from '../services/authService';
+import { useSocketGlobal } from '../hooks/useSocket';
+import { contractService, paymentService, projectService, userService } from '../services/authService';
 import api from '../services/authService';
 import { formatCurrency, formatDate, getApiErrorMessage } from '../utils/helpers';
 import { fadeInUp, floatHero, pageFade, stagger } from '../utils/motionVariants';
 import ContractsHero from '../assets/img4.png';
 import toast from 'react-hot-toast';
 
+const STATUS_CONFIG = {
+  pending: {
+    label: 'Pending',
+    badgeClass: 'bg-gray-100 text-gray-600 border-gray-200',
+    indicatorClass: 'bg-gray-50 border-gray-300 text-gray-400',
+  },
+  funded: {
+    label: 'Funded',
+    badgeClass: 'bg-blue-100 text-blue-700 border-blue-200',
+    indicatorClass: 'bg-blue-50 border-blue-500 text-blue-500',
+  },
+  in_progress: {
+    label: 'In Progress',
+    badgeClass: 'bg-sky-100 text-sky-700 border-sky-200',
+    indicatorClass: 'bg-sky-50 border-sky-500 text-sky-500',
+  },
+  submitted: {
+    label: 'Submitted For Review',
+    badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+    indicatorClass: 'bg-amber-50 border-amber-500 text-amber-500',
+  },
+  approved: {
+    label: 'Approved',
+    badgeClass: 'bg-purple-100 text-purple-700 border-purple-200',
+    indicatorClass: 'bg-purple-50 border-purple-500 text-purple-500',
+  },
+  released: {
+    label: 'Released',
+    badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    indicatorClass: 'bg-emerald-50 border-emerald-500 text-emerald-500',
+  },
+  disputed: {
+    label: 'Disputed',
+    badgeClass: 'bg-red-100 text-red-700 border-red-200',
+    indicatorClass: 'bg-red-50 border-red-500 text-red-500',
+  },
+};
+
 export default function ContractsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { getSocket } = useSocketGlobal();
+
   const [activeTab, setActiveTab] = useState('agreements');
   const [contracts, setContracts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [selectedContract, setSelectedContract] = useState(null);
+  const selectedContractRef = useRef(selectedContract);
+
+  useEffect(() => {
+    selectedContractRef.current = selectedContract;
+  }, [selectedContract]);
+
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletState, setWalletState] = useState('idle'); // idle, connecting, signing, confirmed
   const [signingContract, setSigningContract] = useState(null);
@@ -48,8 +97,13 @@ export default function ContractsPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitMilestoneId, setSubmitMilestoneId] = useState(null);
   const [submitNotes, setSubmitNotes] = useState('');
+  const [submitFiles, setSubmitFiles] = useState('');
   const [submittingWork, setSubmittingWork] = useState(false);
+
   const [actionProcessing, setActionProcessing] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const loadData = useCallback(async (signal) => {
     try {
@@ -65,7 +119,7 @@ export default function ContractsPage() {
           return { data: [] };
         })
       ]);
-      
+
       if (!signal?.aborted) {
         const contractsData = contractsRes?.data || [];
         const transactionsData = txRes?.data || [];
@@ -89,11 +143,11 @@ export default function ContractsPage() {
   }, [loadData]);
 
   // Reload selected contract helper
-  const reloadSelectedContract = async (contractId) => {
+  const reloadSelectedContract = useCallback(async (contractId) => {
+    if (!contractId) return;
     try {
       const { data } = await api.get(`/contracts/${contractId}`);
       if (data) {
-        // If contract is wrapped inside a success wrapper
         const updated = data.data || data;
         setSelectedContract(updated);
         setContracts(prev => prev.map(c => c._id === contractId ? updated : c));
@@ -101,7 +155,38 @@ export default function ContractsPage() {
     } catch (err) {
       toast.error('Failed to refresh contract details');
     }
-  };
+  }, []);
+
+  // Socket updates: automatically refresh contract and data on events
+  useEffect(() => {
+    const socket = getSocket();
+    const currentUserId = user ? (user._id || user.id)?.toString() : null;
+
+    if (currentUserId) {
+      socket.emit('join_user', currentUserId);
+    }
+
+    const handleSocketUpdate = () => {
+      loadData();
+      if (selectedContractRef.current?._id) {
+        reloadSelectedContract(selectedContractRef.current._id);
+      }
+    };
+
+    socket.on('milestone_submitted', handleSocketUpdate);
+    socket.on('milestone_approved', handleSocketUpdate);
+    socket.on('payment_received', handleSocketUpdate);
+    socket.on('notification', handleSocketUpdate);
+    socket.on('contract_disputed', handleSocketUpdate);
+
+    return () => {
+      socket.off('milestone_submitted', handleSocketUpdate);
+      socket.off('milestone_approved', handleSocketUpdate);
+      socket.off('payment_received', handleSocketUpdate);
+      socket.off('notification', handleSocketUpdate);
+      socket.off('contract_disputed', handleSocketUpdate);
+    };
+  }, [user, loadData, reloadSelectedContract, getSocket]);
 
   const getContractProgress = (contract) => {
     if (!contract?.milestones || !Array.isArray(contract.milestones) || contract.milestones.length === 0) return 0;
@@ -135,55 +220,39 @@ export default function ContractsPage() {
   };
 
   const handleSimulateSigning = async () => {
-    setWalletState('connecting');
-    setTimeout(() => {
-      setWalletState('signing');
-      setTimeout(async () => {
-        try {
-          // Send signature API request to server
-          const response = await api.post(`/contracts/${signingContract._id}/sign`);
-          
-          // Generate simulated block details and tx hash on client
-          const mockTxHash = '0x' + Array.from({length: 40}, () => Math.floor(Math.random()*16).toString(16)).join('');
-          
-          // We can also trigger block updates if backend supports it or save mock on client
-          // Let's call updates if needed
-          await api.put(`/contracts/${signingContract._id}`, {
-            blockchain: {
-              verified: true,
-              network: 'sepolia',
-              txHash: mockTxHash,
-              verifiedAt: new Date()
-            }
-          }).catch(() => {}); // ignore if raw update not permitted
-
-          setWalletState('confirmed');
-          toast.success('Contract signed and verified on Sepolia Testnet!');
-          
-          // Refresh data
-          await loadData();
-          if (selectedContract?._id === signingContract._id) {
-            await reloadSelectedContract(signingContract._id);
-          }
-          
-          setTimeout(() => {
-            setShowWalletModal(false);
-          }, 3000);
-        } catch (err) {
-          toast.error(getApiErrorMessage(err));
-          setWalletState('idle');
-        }
-      }, 2000);
-    }, 1500);
+    setWalletState('signing');
+    try {
+      await contractService.sign(signingContract._id);
+      setWalletState('confirmed');
+      toast.success('Contract digitally signed!');
+      await loadData();
+      if (selectedContract?._id === signingContract._id) {
+        await reloadSelectedContract(signingContract._id);
+      }
+      setTimeout(() => setShowWalletModal(false), 1200);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+      setWalletState('idle');
+    }
   };
 
-  // Submit Work Flow
+  const hasUserSigned = (contract) => {
+    if (!contract || !user) return false;
+    const uid = (user._id || user.id)?.toString();
+    const isClient = (contract.client?._id || contract.client)?.toString() === uid;
+    if (isClient) return !!(contract.clientSignature?.signed || contract.signatures?.client?.signed);
+    return !!(contract.freelancerSignature?.signed || contract.signatures?.freelancer?.signed);
+  };
+
+  // 1. Freelancer Workflow - Open Submit Work Modal
   const handleOpenSubmitModal = (milestoneId) => {
     setSubmitMilestoneId(milestoneId);
     setSubmitNotes('');
+    setSubmitFiles('');
     setShowSubmitModal(true);
   };
 
+  // 1. Freelancer Workflow - Submit Work API handler
   const handleSubmitWork = async (e) => {
     e.preventDefault();
     if (!submitNotes.trim()) {
@@ -192,12 +261,16 @@ export default function ContractsPage() {
     }
     setSubmittingWork(true);
     try {
-      await api.put(`/contracts/${selectedContract._id}/milestones/${submitMilestoneId}/submit`, {
-        notes: submitNotes
+      await contractService.submitMilestone(selectedContract._id, submitMilestoneId, {
+        notes: submitNotes.trim(),
+        files: submitFiles.trim(),
       });
-      toast.success('Work submitted successfully!');
+      toast.success('Work submitted for review successfully!');
       setShowSubmitModal(false);
+      setSubmitNotes('');
+      setSubmitFiles('');
       await reloadSelectedContract(selectedContract._id);
+      await loadData();
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
@@ -205,20 +278,70 @@ export default function ContractsPage() {
     }
   };
 
-  // Client Approve & Release Flow
-  const handleApproveRelease = async (milestoneId) => {
+  // 2. Client Workflow - Approve Work API handler
+  const handleApproveWork = async (milestoneId) => {
     setActionProcessing(true);
     try {
-      // First approve
-      await api.put(`/contracts/${selectedContract._id}/milestones/${milestoneId}/approve`);
-      // Then release
-      await api.put(`/contracts/${selectedContract._id}/milestones/${milestoneId}/release`);
-      toast.success('Milestone approved and payment released!');
+      await contractService.approveMilestone(selectedContract._id, milestoneId);
+      toast.success('Milestone approved successfully!');
       await reloadSelectedContract(selectedContract._id);
+      await loadData();
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
       setActionProcessing(false);
+    }
+  };
+
+  // 3. Release Payment Workflow API handler
+  const handleReleasePayment = async (milestoneId) => {
+    setActionProcessing(true);
+    try {
+      await contractService.releaseMilestone(selectedContract._id, milestoneId);
+      toast.success('Payment released successfully!');
+      await reloadSelectedContract(selectedContract._id);
+      await loadData();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleCompleteContract = async () => {
+    setActionProcessing(true);
+    try {
+      await contractService.markCompleted(selectedContract._id);
+      toast.success('Contract completed! You can leave a review.');
+      await reloadSelectedContract(selectedContract._id);
+      await loadData();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setActionProcessing(false);
+    }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    setSubmittingReview(true);
+    try {
+      const revieweeId =
+        user?.role === 'client'
+          ? selectedContract.freelancer?._id || selectedContract.freelancer
+          : selectedContract.client?._id || selectedContract.client;
+      await userService.addReview(revieweeId, {
+        rating: Number(reviewForm.rating),
+        comment: reviewForm.comment,
+        projectId: selectedContract.project?._id || selectedContract.project,
+      });
+      toast.success('Review submitted!');
+      setShowReviewModal(false);
+      setReviewForm({ rating: 5, comment: '' });
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -227,9 +350,10 @@ export default function ContractsPage() {
     if (!window.confirm('Are you sure you want to open a dispute? This will freeze payments.')) return;
     setActionProcessing(true);
     try {
-      await api.post(`/contracts/${selectedContract._id}/dispute`);
+      await contractService.openDispute(selectedContract._id);
       toast.success('Contract status set to disputed.');
       await reloadSelectedContract(selectedContract._id);
+      await loadData();
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
@@ -241,7 +365,12 @@ export default function ContractsPage() {
   const handleFundMilestone = async (projectId, milestoneId, amount) => {
     setActionProcessing(true);
     try {
-      await paymentService.fundMilestone({ projectId, milestoneId, amount });
+      await paymentService.fundMilestone({
+        contractId: selectedContract._id,
+        project: projectId,
+        milestoneId,
+        amount,
+      });
       toast.success('Milestone funded successfully!');
       await loadData();
       if (selectedContract) {
@@ -267,7 +396,7 @@ export default function ContractsPage() {
           <h1 className="font-display text-4xl">Contracts that keep your work moving.</h1>
           <p className="text-mid max-w-2xl">Track signed agreements, milestones, and escrow payments in one elegant place.</p>
           <div className="flex flex-wrap gap-3 mt-5">
-            <button 
+            <button
               onClick={() => setActiveTab('escrow')}
               className={`px-6 py-2.5 rounded-full font-bold transition-all ${activeTab === 'escrow' ? 'bg-primary text-white shadow-lg' : 'bg-white text-text border border-border hover:bg-gray-50'}`}
             >
@@ -279,7 +408,7 @@ export default function ContractsPage() {
           </div>
         </motion.div>
 
-        <motion.div variants={fadeInUp} className="flex justify-center">
+        <motion.div className="flex justify-center">
           <motion.img
             src={ContractsHero}
             alt="Contracts hero"
@@ -342,15 +471,14 @@ export default function ContractsPage() {
                 const progress = getContractProgress(contract);
                 const released = getReleasedAmount(contract);
                 const totalMilestones = (contract?.milestones && Array.isArray(contract.milestones)) ? contract.milestones.length : 0;
-                const completedMilestones = (contract?.milestones && Array.isArray(contract.milestones)) 
-                  ? contract.milestones.filter(m => m?.status === 'released').length 
+                const completedMilestones = (contract?.milestones && Array.isArray(contract.milestones))
+                  ? contract.milestones.filter(m => m?.status === 'released').length
                   : 0;
                 const partner = user?.role === 'client' ? contract?.freelancer : contract?.client;
 
                 return (
-                  <motion.article 
-                    key={contract?._id || Math.random()} 
-                    variants={fadeInUp} 
+                  <motion.article
+                    key={contract?._id || Math.random()}
                     className="rounded-[1.75rem] border border-border/50 bg-white/80 p-5 shadow-lg flex flex-col justify-between"
                   >
                     <div>
@@ -366,10 +494,10 @@ export default function ContractsPage() {
 
                       <div className="space-y-3 my-4">
                         <div className="flex items-center gap-2">
-                          <img 
-                            src={partner?.avatar || (partner?.name ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner.name}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`)} 
-                            alt={partner?.name || 'User'} 
-                            className="w-6 h-6 rounded-full object-cover" 
+                          <img
+                            src={partner?.avatar || (partner?.name ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner.name}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`)}
+                            alt={partner?.name || 'User'}
+                            className="w-6 h-6 rounded-full object-cover"
                           />
                           <span className="text-xs font-medium text-text truncate">
                             {user?.role === 'client' ? 'Freelancer: ' : 'Client: '}
@@ -393,9 +521,9 @@ export default function ContractsPage() {
                             <span>{progress}%</span>
                           </div>
                           <div className="w-full bg-gray-150 h-2 rounded-full overflow-hidden">
-                            <div 
-                              className="bg-[#1DBF73] h-full rounded-full transition-all duration-500" 
-                              style={{ width: `${progress}%` }} 
+                            <div
+                              className="bg-[#1DBF73] h-full rounded-full transition-all duration-500"
+                              style={{ width: `${progress}%` }}
                             />
                           </div>
                         </div>
@@ -407,15 +535,15 @@ export default function ContractsPage() {
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between gap-3">
-                      {contract?.status === 'pending_signature' && (
-                        <button 
+                      {((contract?.status === 'pending_signature' || contract?.status === 'draft') && !hasUserSigned(contract)) && (
+                        <button
                           onClick={() => handleOpenWalletModal(contract)}
                           className="text-xs font-bold text-indigo-700 hover:text-indigo-800 flex items-center gap-1 transition-colors"
                         >
                           <Wallet className="w-4 h-4" /> Sign Agreement
                         </button>
                       )}
-                      <button 
+                      <button
                         onClick={() => setSelectedContract(contract)}
                         className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1 transition-colors ml-auto"
                       >
@@ -505,21 +633,25 @@ export default function ContractsPage() {
                   </div>
                 </div>
               </Card>
-              
+
               <div className="rounded-[1.75rem] border border-border p-6 bg-white space-y-4">
                 <h3 className="font-bold text-text">How Escrow Works</h3>
                 <ul className="space-y-3 text-sm text-muted">
                   <li className="flex gap-2">
                     <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                    <span>Client funds a milestone; money is held securely.</span>
+                    <span>Client funds a milestone; money is held securely in escrow.</span>
                   </li>
                   <li className="flex gap-2">
                     <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                    <span>Freelancer submits work for the funded milestone.</span>
+                    <span>Freelancer submits work with notes & deliverables.</span>
                   </li>
                   <li className="flex gap-2">
                     <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                    <span>Client approves work and releases funds to freelancer.</span>
+                    <span>Client reviews and approves the submitted work.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                    <span>Client releases payment to freelancer wallet.</span>
                   </li>
                 </ul>
               </div>
@@ -532,14 +664,14 @@ export default function ContractsPage() {
       <AnimatePresence>
         {selectedContract && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedContract(null)}
               className="fixed inset-0 bg-black z-45"
             />
-            <motion.div 
+            <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -556,7 +688,7 @@ export default function ContractsPage() {
                     <h2 className="text-2xl font-bold text-text mt-2">{selectedContract.project?.title || 'Contract Details'}</h2>
                     <p className="text-sm text-muted">Value: {formatCurrency(selectedContract.amount / 100)}</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setSelectedContract(null)}
                     className="p-2 text-muted hover:text-text rounded-full hover:bg-gray-100 transition-colors"
                   >
@@ -583,7 +715,7 @@ export default function ContractsPage() {
                           <span className="font-mono text-indigo-700 truncate max-w-[150px]">
                             {selectedContract.blockchain.txHash}
                           </span>
-                          <button 
+                          <button
                             onClick={() => handleCopyText(selectedContract.blockchain.txHash)}
                             className="p-1 hover:bg-gray-200 rounded text-muted"
                           >
@@ -595,7 +727,7 @@ export default function ContractsPage() {
                         <span className="text-muted">Verified At:</span>
                         <span className="text-text font-medium">{formatDate(selectedContract.blockchain.verifiedAt)}</span>
                       </div>
-                      <a 
+                      <a
                         href={`https://sepolia.etherscan.io/tx/${selectedContract.blockchain.txHash}`}
                         target="_blank"
                         rel="noreferrer"
@@ -606,14 +738,20 @@ export default function ContractsPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-xs text-muted">This contract is currently stored off-chain. Sign it with simulated MetaMask flow to register it immutably on the Sepolia testnet.</p>
-                      <Button 
-                        size="sm"
-                        onClick={() => handleOpenWalletModal(selectedContract)}
-                        className="w-full flex items-center justify-center gap-2"
-                      >
-                        <Wallet className="w-4 h-4" /> Verify Contract
-                      </Button>
+                      <p className="text-xs text-muted">
+                        {hasUserSigned(selectedContract)
+                          ? 'Waiting for the other party to sign this contract.'
+                          : 'Sign this contract digitally to activate milestones and escrow.'}
+                      </p>
+                      {!hasUserSigned(selectedContract) && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenWalletModal(selectedContract)}
+                          className="w-full flex items-center justify-center gap-2"
+                        >
+                          <Wallet className="w-4 h-4" /> Sign Contract
+                        </Button>
+                      )}
                     </div>
                   )}
                 </Card>
@@ -626,14 +764,17 @@ export default function ContractsPage() {
                   ) : (
                     <div className="space-y-6">
                       {(selectedContract?.milestones || []).filter(Boolean).map((milestone, idx) => {
-                        const statusColors = {
-                          released: 'bg-green-100 text-green-700 border-green-200',
-                          approved: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-                          submitted: 'bg-amber-100 text-amber-700 border-amber-200',
-                          funded: 'bg-blue-100 text-blue-700 border-blue-200',
-                          disputed: 'bg-red-100 text-red-700 border-red-200',
-                          pending: 'bg-gray-100 text-gray-500 border-gray-200'
-                        };
+                        const currentUserId = (user?._id || user?.id)?.toString();
+                        const contractClientId = (selectedContract?.client?._id || selectedContract?.client)?.toString();
+                        const contractFreelancerId = (selectedContract?.freelancer?._id || selectedContract?.freelancer)?.toString();
+
+                        const isDirectClient = currentUserId && contractClientId === currentUserId;
+                        const isDirectFreelancer = currentUserId && contractFreelancerId === currentUserId;
+
+                        const isClientUser = isDirectClient || (user?.role === 'client' && !isDirectFreelancer);
+                        const isFreelancerUser = isDirectFreelancer || (user?.role === 'freelancer' && !isDirectClient);
+
+                        const statusConfig = STATUS_CONFIG[milestone?.status] || STATUS_CONFIG.pending;
                         const isLast = idx === (selectedContract?.milestones?.length || 0) - 1;
 
                         return (
@@ -642,19 +783,14 @@ export default function ContractsPage() {
                             {!isLast && (
                               <div className="absolute top-10 left-5 bottom-0 w-0.5 bg-gray-200 -z-10" />
                             )}
-                            
+
                             {/* Circle Indicator */}
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 ${
-                              milestone?.status === 'released' ? 'bg-green-50 border-green-500 text-green-500' :
-                              milestone?.status === 'approved' ? 'bg-indigo-50 border-indigo-500 text-indigo-500' :
-                              milestone?.status === 'submitted' ? 'bg-amber-50 border-amber-500 text-amber-500' :
-                              milestone?.status === 'funded' ? 'bg-blue-50 border-blue-500 text-blue-500' :
-                              'bg-gray-50 border-gray-300 text-gray-400'
-                            }`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2 ${statusConfig.indicatorClass}`}>
                               {milestone?.status === 'released' ? <CheckCircle2 className="w-5 h-5" /> :
-                               milestone?.status === 'submitted' ? <Clock className="w-5 h-5" /> :
-                               milestone?.status === 'funded' ? <Shield className="w-5 h-5" /> :
-                               <Clock className="w-5 h-5" />}
+                                milestone?.status === 'approved' ? <CheckCircle2 className="w-5 h-5" /> :
+                                  milestone?.status === 'submitted' ? <Clock className="w-5 h-5" /> :
+                                    milestone?.status === 'funded' ? <Shield className="w-5 h-5" /> :
+                                      <Clock className="w-5 h-5" />}
                             </div>
 
                             {/* Details Card */}
@@ -668,8 +804,8 @@ export default function ContractsPage() {
                                 </div>
                                 <div className="text-right">
                                   <p className="font-bold text-text">{formatCurrency((milestone?.amount || 0) / 100)}</p>
-                                  <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${statusColors[milestone?.status] || 'border-gray-200 text-gray-400'}`}>
-                                    {milestone?.status || 'pending'}
+                                  <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${statusConfig.badgeClass}`}>
+                                    {statusConfig.label}
                                   </span>
                                 </div>
                               </div>
@@ -685,37 +821,84 @@ export default function ContractsPage() {
                                 </p>
                               )}
 
-                              {/* Submission notes details */}
-                              {milestone?.submissionNotes && (
-                                <div className="p-3 bg-gray-50 rounded-xl mt-2 text-xs border border-gray-250">
-                                  <p className="font-semibold text-text mb-1">Freelancer Submission Notes:</p>
-                                  <p className="text-muted italic">"{milestone.submissionNotes}"</p>
+                              {milestone?.status === 'approved' && milestone?.approvedAt && (
+                                <p className="text-xs text-purple-600 font-medium flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Approved on {formatDate(milestone.approvedAt)}
+                                </p>
+                              )}
+
+                              {/* Submission notes and files details */}
+                              {milestone?.submissionFiles && (
+                                <div className="pt-1 flex flex-col gap-1 text-xs text-primary font-medium">
+                                  <div className="flex items-center gap-1">
+                                    <Paperclip className="w-3.5 h-3.5" />
+                                    <span>Attachments</span>
+                                  </div>
+
+                                  {Array.isArray(milestone.submissionFiles) ? (
+                                    milestone.submissionFiles.map((file, index) => (
+                                      <div key={index}>
+                                        {typeof file === "string" ? (
+                                          file.startsWith("http") ? (
+                                            <a
+                                              href={file}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="underline"
+                                            >
+                                              {file}
+                                            </a>
+                                          ) : (
+                                            <span>{file}</span>
+                                          )
+                                        ) : (
+                                          <span>{JSON.stringify(file)}</span>
+                                        )}
+                                      </div>
+                                    ))
+                                  ) : typeof milestone.submissionFiles === "string" ? (
+                                    milestone.submissionFiles.startsWith("http") ? (
+                                      <a
+                                        href={milestone.submissionFiles}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="underline"
+                                      >
+                                        {milestone.submissionFiles}
+                                      </a>
+                                    ) : (
+                                      <span>{milestone.submissionFiles}</span>
+                                    )
+                                  ) : (
+                                    <span>{JSON.stringify(milestone.submissionFiles)}</span>
+                                  )}
                                 </div>
                               )}
 
-                              {/* Action buttons */}
-                              <div className="flex gap-2 pt-2">
-                                {/* Freelancer submit action */}
-                                {user?.role === 'freelancer' && (milestone?.status === 'funded' || milestone?.status === 'in_progress') && (
-                                  <Button 
-                                    size="sm" 
+                              {/* Action buttons strictly mapped per workflow requirements */}
+                              <div className="flex flex-wrap gap-2 pt-2">
+                                {/* 1. Freelancer workflow: Show "Submit Work" when status is "funded" OR "in_progress" */}
+                                {isFreelancerUser && (milestone?.status === 'funded' || milestone?.status === 'in_progress') && (
+                                  <Button
+                                    size="sm"
+                                    disabled={actionProcessing}
                                     onClick={() => handleOpenSubmitModal(milestone._id)}
                                   >
                                     Submit Work
                                   </Button>
                                 )}
 
-                                {/* Client approve & release actions */}
-                                {user?.role === 'client' && milestone?.status === 'submitted' && (
+                                {/* 2. Client workflow: Show "Approve Work" when status is "submitted" */}
+                                {isClientUser && milestone?.status === 'submitted' && (
                                   <>
-                                    <Button 
+                                    <Button
                                       size="sm"
                                       disabled={actionProcessing}
-                                      onClick={() => handleApproveRelease(milestone._id)}
+                                      onClick={() => handleApproveWork(milestone._id)}
                                     >
-                                      Approve & Release
+                                      Approve Work
                                     </Button>
-                                    <Button 
+                                    <Button
                                       size="sm"
                                       variant="outline"
                                       disabled={actionProcessing}
@@ -727,10 +910,32 @@ export default function ContractsPage() {
                                   </>
                                 )}
 
-                                {/* Not funded state */}
-                                {milestone?.status === 'pending' && user?.role === 'client' && (
-                                  <Button 
-                                    size="sm" 
+                                {/* 3. Release payment workflow: Show "Release Payment" ONLY when status is "approved" */}
+                                {isClientUser && milestone?.status === 'approved' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      disabled={actionProcessing}
+                                      onClick={() => handleReleasePayment(milestone._id)}
+                                    >
+                                      Release Payment
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={actionProcessing}
+                                      onClick={() => handleDispute()}
+                                      className="border-red-200 text-red-600 hover:bg-red-50"
+                                    >
+                                      Dispute
+                                    </Button>
+                                  </>
+                                )}
+
+                                {/* Client fund milestone state */}
+                                {isClientUser && milestone?.status === 'pending' && (
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     disabled={actionProcessing}
                                     onClick={() => handleFundMilestone(selectedContract?.project?._id || selectedContract?.project, milestone?._id, milestone?.amount)}
@@ -750,7 +955,7 @@ export default function ContractsPage() {
 
               {/* Footer */}
               <div className="pt-6 border-t border-border mt-8 flex flex-col sm:flex-row gap-3">
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => {
                     const convId = buildConversationId(selectedContract.client?._id || selectedContract.client, selectedContract.freelancer?._id || selectedContract.freelancer);
@@ -760,8 +965,32 @@ export default function ContractsPage() {
                 >
                   <MessageSquare className="w-4 h-4" /> Message Partner
                 </Button>
+                {((selectedContract.status === 'pending_signature' || selectedContract.status === 'draft') && !hasUserSigned(selectedContract)) && (
+                  <Button onClick={() => handleOpenWalletModal(selectedContract)} className="flex-1">
+                    <Wallet className="w-4 h-4" /> Sign Contract
+                  </Button>
+                )}
+                {selectedContract.status === 'active'
+                  && (selectedContract.milestones || []).length > 0
+                  && (selectedContract.milestones || []).every((m) => m.status === 'released') && (
+                    <Button
+                      disabled={actionProcessing}
+                      onClick={handleCompleteContract}
+                      className="flex-1"
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Complete Contract
+                    </Button>
+                  )}
+                {selectedContract.status === 'completed' && (
+                  <Button
+                    onClick={() => setShowReviewModal(true)}
+                    className="flex-1"
+                  >
+                    Leave Review
+                  </Button>
+                )}
                 {selectedContract.status !== 'completed' && selectedContract.status !== 'cancelled' && (
-                  <Button 
+                  <Button
                     variant="outline"
                     disabled={actionProcessing}
                     onClick={handleDispute}
@@ -780,14 +1009,14 @@ export default function ContractsPage() {
       <AnimatePresence>
         {showWalletModal && (
           <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowWalletModal(false)}
               className="fixed inset-0 bg-black"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -797,7 +1026,7 @@ export default function ContractsPage() {
                 <h3 className="text-lg font-bold text-text flex items-center gap-2">
                   <Wallet className="w-5 h-5 text-indigo-700" /> MetaMask Wallet Simulation
                 </h3>
-                <button 
+                <button
                   onClick={() => setShowWalletModal(false)}
                   className="text-muted hover:text-text"
                 >
@@ -872,22 +1101,23 @@ export default function ContractsPage() {
       <AnimatePresence>
         {showSubmitModal && (
           <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.6 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSubmitModal(false)}
               className="fixed inset-0 bg-black"
             />
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl p-6 shadow-2xl border border-border w-full max-w-md relative z-10 space-y-4"
+              className="bg-white rounded-3xl p-6 shadow-2xl border border-border w-full max-w-md relative z-10 space-y-4 font-body"
             >
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-bold text-text">Submit Milestone Work</h3>
-                <button 
+                <button
+                  type="button"
                   onClick={() => setShowSubmitModal(false)}
                   className="text-muted hover:text-text"
                 >
@@ -898,32 +1128,100 @@ export default function ContractsPage() {
               <form onSubmit={handleSubmitWork} className="space-y-4">
                 <div>
                   <label className="text-sm font-semibold text-text block mb-1">
-                    Submission Notes / Proof of Work
+                    Submission Notes / Deliverable Summary *
                   </label>
-                  <textarea 
+                  <textarea
                     rows={4}
                     value={submitNotes}
                     onChange={(e) => setSubmitNotes(e.target.value)}
                     className="w-full px-3 py-2 border border-border rounded-xl text-sm text-text focus:outline-none focus:border-primary"
-                    placeholder="Provide details about the work completed, links, or file paths..."
+                    placeholder="Provide details about the completed work for client review..."
                     required
                   />
                 </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-text block mb-1">
+                    Files / Work Link (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={submitFiles}
+                    onChange={(e) => setSubmitFiles(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-xl text-sm text-text focus:outline-none focus:border-primary"
+                    placeholder="e.g. https://github.com/... or Google Drive link"
+                  />
+                </div>
+
                 <div className="flex justify-end gap-2 pt-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => setShowSubmitModal(false)}
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={submittingWork}
                   >
                     {submittingWork ? 'Submitting...' : 'Submit Work'}
                   </Button>
                 </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showReviewModal && selectedContract && (
+          <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowReviewModal(false)}
+              className="fixed inset-0 bg-black"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 shadow-2xl border border-border w-full max-w-md relative z-10 space-y-4"
+            >
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-text">Leave a Review</h3>
+                <button type="button" onClick={() => setShowReviewModal(false)}>
+                  <X className="w-5 h-5 text-muted" />
+                </button>
+              </div>
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-text">Rating</label>
+                  <select
+                    value={reviewForm.rating}
+                    onChange={(e) => setReviewForm({ ...reviewForm, rating: e.target.value })}
+                    className="w-full mt-1.5 px-4 py-2.5 border border-border rounded-xl"
+                  >
+                    {[5, 4, 3, 2, 1].map((n) => (
+                      <option key={n} value={n}>{n} stars</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-text">Comment</label>
+                  <textarea
+                    rows={3}
+                    value={reviewForm.comment}
+                    onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                    className="w-full mt-1.5 px-4 py-2.5 border border-border rounded-xl"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={submittingReview}>
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
+                </Button>
               </form>
             </motion.div>
           </div>
@@ -944,8 +1242,8 @@ export default function ContractsPage() {
           </div>
         </div>
         <p className="text-sm text-muted leading-relaxed max-w-3xl">
-          Each signed contract generates a SHA-256 cryptographic hash stored on the contract record. 
-          This section will display an on-chain ledger view where contract hashes are verified against 
+          Each signed contract generates a SHA-256 cryptographic hash stored on the contract record.
+          This section will display an on-chain ledger view where contract hashes are verified against
           an Ethereum testnet — making every agreement permanently tamper-evident and publicly auditable.
         </p>
         <div className="mt-6 pt-6 border-t border-indigo-100/50 flex items-center gap-2 text-xs text-indigo-800 font-medium">

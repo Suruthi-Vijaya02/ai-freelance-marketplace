@@ -18,10 +18,11 @@ export async function createProject(req, res) {
 
 export async function getProjects(req, res) {
   try {
-    const { search, skills, status, mine, limit, budgetMin, budgetMax } = req.query;
+    const { search, skills, category, status, mine, limit, budgetMin, budgetMax } = req.query;
     const filter = {};
 
     if (status) filter.status = status;
+    if (category) filter.category = { $regex: category, $options: 'i' };
 
     if (search) {
       filter.$or = [
@@ -44,13 +45,26 @@ export async function getProjects(req, res) {
       filter.client = req.user._id;
     }
 
-    // Enforce visibility: only show private projects to their owner
-    if (!req.user) {
-      filter.visibility = 'public';
-    } else if (req.user.role !== 'admin' && mine !== 'true') {
-      filter.$or = filter.$or
-        ? [{ $and: [{ $or: filter.$or }, { $or: [{ visibility: 'public' }, { client: req.user._id }] }] }]
-        : [{ visibility: 'public' }, { client: req.user._id }];
+    // Enforce visibility: only show public projects or owned private projects
+    const publicOrOwned = [
+      { visibility: 'public' },
+      { visibility: { $exists: false } },
+      { visibility: null },
+    ];
+    if (req.user) {
+      publicOrOwned.push({ client: req.user._id });
+    }
+
+    if (!req.user || (req.user.role !== 'admin' && mine !== 'true')) {
+      if (filter.$or) {
+        filter.$and = [
+          { $or: filter.$or },
+          { $or: publicOrOwned },
+        ];
+        delete filter.$or;
+      } else {
+        filter.$or = publicOrOwned;
+      }
     }
 
     let query = Project.find(filter)
@@ -62,7 +76,7 @@ export async function getProjects(req, res) {
     let projects = await query;
 
     if (req.user?.role === 'freelancer' && req.user.skills?.length) {
-      projects = rankProjectsForFreelancer(projects, req.user.skills);
+      projects = await rankProjectsForFreelancer(projects, req.user);
     }
 
     return res.json(projects);
@@ -108,7 +122,7 @@ export async function getProjectById(req, res) {
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
     const freelancers = await User.find({ role: 'freelancer', status: 'active' }).limit(10);
-    const matches = rankFreelancersForProject(freelancers, project.skills);
+    const matches = await rankFreelancersForProject(freelancers, project);
 
     return res.json({ project, aiMatches: matches.slice(0, 5) });
   } catch (err) {
@@ -121,7 +135,7 @@ export async function getProjectMatches(req, res) {
     const project = await Project.findById(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
     const freelancers = await User.find({ role: 'freelancer' });
-    const matches = rankFreelancersForProject(freelancers, project.skills);
+    const matches = await rankFreelancersForProject(freelancers, project);
     return res.json(matches);
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -171,3 +185,37 @@ export async function updateProjectTotalSpent(req, res) {
     return res.status(500).json({ message: err.message });
   }
 }
+
+export async function updateProject(req, res) {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    if (project.client.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    Object.assign(project, req.body);
+    await project.save();
+    return res.json(project);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+
+export async function deleteProject(req, res) {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    if (project.client.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    await Project.findByIdAndDelete(req.params.id);
+    return res.json({ message: 'Project deleted successfully' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+}
+

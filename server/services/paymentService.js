@@ -12,12 +12,7 @@ function getStripe() {
 export async function createEscrowPayment({ amount, currency = 'usd', metadata = {} }) {
   const stripeClient = getStripe();
   if (!stripeClient) {
-    return {
-      id: `mock_pi_${Date.now()}`,
-      clientSecret: `mock_secret_${Date.now()}`,
-      status: 'requires_payment_method',
-      mock: true,
-    };
+    throw new Error('Stripe is not configured');
   }
   const paymentIntent = await stripeClient.paymentIntents.create({
     amount: Math.round(amount * 100),
@@ -36,7 +31,7 @@ export async function createEscrowPayment({ amount, currency = 'usd', metadata =
 export async function releasePayment(paymentIntentId) {
   const stripeClient = getStripe();
   if (!stripeClient) {
-    return { id: paymentIntentId, status: 'succeeded', mock: true };
+    throw new Error('Stripe is not configured');
   }
   const intent = await stripeClient.paymentIntents.capture(paymentIntentId);
   return { id: intent.id, status: intent.status, mock: false };
@@ -44,7 +39,7 @@ export async function releasePayment(paymentIntentId) {
 
 export async function createRazorpayOrder({ amount, currency = 'INR' }) {
   if (!process.env.RAZORPAY_KEY_ID) {
-    return { id: `mock_rzp_${Date.now()}`, amount, currency, mock: true };
+    throw new Error('Razorpay is not configured');
   }
   return { id: `rzp_order_${Date.now()}`, amount, currency, mock: false };
 }

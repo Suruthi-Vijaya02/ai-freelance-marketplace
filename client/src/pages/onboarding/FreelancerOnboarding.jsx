@@ -45,14 +45,43 @@ const EXP_KW = [
 
 function _suggestSkills(text) {
   if (!text || !text.trim()) return [];
-  const lower = text.toLowerCase();
+  const normalized = text.toLowerCase().replace(/\s+/g, ' ');
   const found = new Set();
+  
   for (let i = 0; i < CANONICAL_SKILLS.length; i++) {
     const s = CANONICAL_SKILLS[i];
-    const a1 = s.toLowerCase();
-    const a2 = a1.replace(/[^a-z0-9]/g, '');
-    if ((a1 && lower.indexOf(a1) !== -1) || (a2 && lower.indexOf(a2) !== -1)) {
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Custom boundaries for special characters like C++, C#, .NET
+    const boundary = '(?:^|[\\s,.;:()\\/\\"\\[\\]{}])';
+    const endBoundary = '(?:$|[\\s,.;:()\\/\\"\\[\\]{}])';
+    
+    const primaryRegex = new RegExp(`${boundary}${escaped}${endBoundary}`, 'i');
+    
+    // Handle variations (React JS, Node.js, etc.)
+    const variationRegex = s.includes(' ') || s.includes('.') || s.includes('-')
+      ? new RegExp(`${boundary}${escaped.replace(/[\\s.-]/g, '[\\s.-]?')}${endBoundary}`, 'i')
+      : null;
+
+    if (primaryRegex.test(normalized) || (variationRegex && variationRegex.test(normalized))) {
       found.add(s);
+      continue;
+    }
+
+    // Common Aliases
+    const aliases = [
+      s.toLowerCase().includes('javascript') ? 'js' : null,
+      s.toLowerCase().includes('typescript') ? 'ts' : null,
+      s === 'C++' ? 'cpp' : null,
+      s === 'C#' ? 'csharp' : null,
+    ].filter(Boolean);
+
+    for (let j = 0; j < aliases.length; j++) {
+      const aliasRegex = new RegExp(`${boundary}${aliases[j]}${endBoundary}`, 'i');
+      if (aliasRegex.test(normalized)) {
+        found.add(s);
+        break;
+      }
     }
   }
   return Array.from(found);
@@ -64,32 +93,65 @@ function _generateBio(text, skills) {
       ? 'Experienced professional skilled in ' + skills.slice(0, 3).join(', ') + '.'
       : 'Skilled professional ready to contribute to impactful projects.';
   }
-  const clean = text.replace(/[\r\n]+/g, ' ');
-  const raw = clean.split('.');
-  const sentences = [];
-  for (let i = 0; i < raw.length; i++) {
-    const s = raw[i].trim();
-    if (s.length > 30 && s.length < 300) sentences.push(s);
-  }
-  const allKw = CANONICAL_SKILLS.map(function(s) { return s.toLowerCase(); }).concat(EXP_KW);
-  const scored = sentences.map(function(sentence) {
+
+  const sentences = text
+    .replace(/[\r\n]+/g, ' ')
+    .split(/(?<=[.?!])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => {
+      const lo = s.toLowerCase();
+      const isHeader = lo.length < 25 && (
+        lo.includes('summary') || 
+        lo.includes('objective') || 
+        lo.includes('contact') || 
+        lo.includes('experience') ||
+        lo.includes('education')
+      );
+      return s.length > 30 && s.length < 350 && !isHeader;
+    });
+
+  const allKw = CANONICAL_SKILLS.map((s) => s.toLowerCase()).concat(EXP_KW);
+  const scored = sentences.map((sentence) => {
     const lo = sentence.toLowerCase();
     let score = 0;
     for (let i = 0; i < allKw.length; i++) {
-      if (lo.indexOf(allKw[i]) !== -1) score++;
+      try {
+        const regex = new RegExp(`\\b${allKw[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        if (regex.test(lo)) score++;
+      } catch (e) {
+        if (lo.indexOf(allKw[i]) !== -1) score++;
+      }
     }
-    return { sentence: sentence, score: score };
+    return { sentence, score };
   });
-  scored.sort(function(a, b) { return b.score - a.score; });
-  const top = scored.slice(0, 2).map(function(x) { return x.sentence; });
-  if (top.length === 0) {
+
+  scored.sort((a, b) => b.score - a.score);
+  const topSentences = scored.slice(0, 5);
+  // Shuffle top candidates
+  for (let i = topSentences.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [topSentences[i], topSentences[j]] = [topSentences[j], topSentences[i]];
+  }
+
+  const selected = topSentences.slice(0, 2).map((x) => x.sentence);
+
+  if (selected.length === 0) {
     const snip = text.slice(0, 200).trim();
     return snip.length > 50 ? snip : 'Dedicated professional with a passion for building great software.';
   }
-  if (skills.length >= 3) {
-    top.push('Core competencies include ' + skills.slice(0, 4).join(', ') + '.');
-  }
-  return top.join(' ');
+
+  const templates = [
+    (bio, skillsList) => `${bio} Expertly leverages ${skillsList.slice(0, 3).join(', ')} to drive innovation.`,
+    (bio, skillsList) => `With a deep focus on ${skillsList[0] || 'technology'}, ${bio.charAt(0).toLowerCase() + bio.slice(1)}`,
+    (bio, skillsList) => `${bio} Committed to delivering high-quality solutions using ${skillsList.slice(0, 4).join(', ')}.`,
+  ];
+
+  const templateIdx = Math.floor(Math.random() * templates.length);
+  const finalBio = skills.length >= 3 
+    ? templates[templateIdx](selected.join(' '), skills)
+    : selected.join(' ');
+
+  return finalBio.length > 450 ? finalBio.slice(0, 447) + '...' : finalBio;
 }
 
 function parseAndEnrichResume(text) {
@@ -148,6 +210,9 @@ export default function FreelancerOnboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [resumeData, setResumeData] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [applyingAi, setApplyingAi] = useState(false);
+  const [aiApplied, setAiApplied] = useState(false);
   const fileInputRef = useRef(null);
 
   const [form, setForm] = useState({
@@ -216,38 +281,49 @@ export default function FreelancerOnboarding() {
   const handleResumeUpload = async (file) => {
     if (!file) return;
     setIsParsing(true);
+    setUploadProgress(0);
+    setAiApplied(false);
+    setResumeData(null);
     try {
-      let text = '';
-      if (file.type === 'text/plain') {
-        text = await file.text();
-      } else {
-        const formData = new FormData();
-        formData.append('resume', file);
-        try {
-          const res = await fetch('/api/users/parse-resume', {
-            method: 'POST',
-            body: formData,
-          });
-          if (res.ok) {
-            const data = await res.json();
-            text = data.text || '';
-          }
-        } catch {
-          text = 'Software developer with experience in building web applications.';
-        }
-      }
-      const parsed = parseAndEnrichResume(text);
-      setResumeData(parsed);
+      const formData = new FormData();
+      formData.append('resume', file);
+
+      const { data } = await userService.uploadResume(formData, (p) => setUploadProgress(p));
+      const suggestions = data?.aiSuggestions || {};
+      const parsedData = {
+        skills: data?.skills || suggestions.skills || [],
+        bio: data?.bio || suggestions.bio || '',
+        experienceKeywords: data?.experienceKeywords || suggestions.experienceKeywords || [],
+        aiSource: data?.aiSource || 'fallback',
+        generatedAt: suggestions.generatedAt || new Date().toISOString(),
+      };
+
+      setResumeData(parsedData);
       setForm((f) => ({
         ...f,
-        skills: parsed.skills.length > 0 ? parsed.skills : f.skills,
-        bio: parsed.bio || f.bio,
+        skills: parsedData.skills.length > 0 ? parsedData.skills : f.skills,
+        bio: parsedData.bio || f.bio,
+        years: parsedData.experienceKeywords?.length
+          ? Math.max(Number(f.years) || 0, Math.min(parsedData.experienceKeywords.length, 10))
+          : f.years,
       }));
-      toast.success(`AI autofill complete. Found ${parsed.skills.length} skills!`);
+
+      if (data?.user) {
+        login(data.user, localStorage.getItem('svr_token'));
+      }
+
+      if (parsedData.skills.length > 0) {
+        toast.success(`AI autofill complete. Found ${parsedData.skills.length} skills!`);
+      } else {
+        toast.success('Resume uploaded. Review AI suggestions below.');
+      }
     } catch (err) {
-      toast.error('Failed to parse resume');
+      console.error('handleResumeUpload error:', err);
+      toast.error(err?.message || 'Failed to parse resume');
     } finally {
       setIsParsing(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -402,10 +478,17 @@ export default function FreelancerOnboarding() {
                         onChange={(e) => handleResumeUpload(e.target.files?.[0])}
                       />
                       {isParsing ? (
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center w-full max-w-sm mx-auto">
                           <Loader2 className="animate-spin text-indigo-600 mb-4" size={32} />
                           <p className="text-gray-600 font-medium">Parsing with AI…</p>
-                          <p className="text-sm text-gray-400 mt-1">Extracting skills and generating bio</p>
+                          <p className="text-sm text-gray-400 mt-1 mb-4">Extracting skills and generating bio</p>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-indigo-600 transition-all"
+                              style={{ width: `${uploadProgress || 0}%` }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-400 mt-2">{uploadProgress || 0}%</p>
                         </div>
                       ) : (
                         <>
@@ -419,38 +502,127 @@ export default function FreelancerOnboarding() {
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-                        <CheckCircle2 className="text-green-600" size={20} />
-                        <div>
-                          <p className="text-sm font-semibold text-green-800">AI autofill complete!</p>
-                          <p className="text-xs text-green-700">Found {resumeData.skills.length} skills and generated your bio.</p>
+                        <CheckCircle2 className="text-green-600 shrink-0" size={20} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-green-800 truncate">AI autofill complete!</p>
+                          <p className="text-xs text-green-700 truncate">
+                            Found {resumeData.skills?.length ?? 0} skills and {resumeData.experienceKeywords?.length ?? 0} experience signals.
+                          </p>
                         </div>
                       </div>
-                      {resumeData.skills.length > 0 && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-2">Detected skills:</p>
+
+                      {resumeData && (
+                        <div className="p-4 rounded-xl bg-white border border-gray-200">
+                          <p className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-indigo-600" /> Extracted Skills
+                          </p>
                           <div className="flex flex-wrap gap-2">
-                            {resumeData.skills.slice(0, 6).map((s) => (
-                              <span key={s} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full">
-                                {s}
-                              </span>
-                            ))}
-                            {resumeData.skills.length > 6 && (
+                            {(resumeData.skills || []).length === 0 ? (
+                              <span className="text-xs text-gray-500">No skills detected</span>
+                            ) : (
+                              resumeData.skills.slice(0, 12).map((s) => (
+                                <span key={s} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full">
+                                  {s}
+                                </span>
+                              ))
+                            )}
+                            {(resumeData.skills || []).length > 12 && (
                               <span className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">
-                                +{resumeData.skills.length - 6} more
+                                +{resumeData.skills.length - 12} more
                               </span>
                             )}
                           </div>
                         </div>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => { setResumeData(null); setForm((f) => ({ ...f, skills: [], bio: '' })); }}
-                        className="text-sm text-gray-500 hover:text-indigo-600 underline"
-                      >
-                        Remove & upload different file
-                      </button>
+
+                      {resumeData && (
+                        <div className="p-4 rounded-xl bg-white border border-gray-200">
+                          <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-500" /> Generated Bio
+                          </p>
+                          <p className="text-sm text-gray-600 italic leading-relaxed">
+                            &ldquo;{resumeData.bio || 'No bio generated'}&rdquo;
+                          </p>
+                        </div>
+                      )}
+
+                      {resumeData && (
+                        <div className="p-4 rounded-xl bg-white border border-gray-200">
+                          <p className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-emerald-600" /> Experience Keywords
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(resumeData.experienceKeywords || []).length === 0 ? (
+                              <span className="text-xs text-gray-500">No experience keywords detected</span>
+                            ) : (
+                              resumeData.experienceKeywords.map((kw) => (
+                                <span key={kw} className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-medium">
+                                  {kw}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                        {aiApplied ? (
+                          <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-700 font-semibold rounded-xl border border-emerald-200">
+                            <CheckCircle2 className="w-4 h-4" /> Applied Successfully
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-60"
+                            onClick={async () => {
+                              setApplyingAi(true);
+                              try {
+                                const { data } = await userService.applyAiSuggestions({
+                                  acceptSkills: true,
+                                  acceptBio: true,
+                                });
+                                const appliedSkills = data?.skills || resumeData.skills || [];
+                                const appliedBio = data?.bio || resumeData.bio || '';
+                                setForm((f) => ({
+                                  ...f,
+                                  skills: appliedSkills.length ? appliedSkills : f.skills,
+                                  bio: appliedBio || f.bio,
+                                  years: resumeData.experienceKeywords?.length
+                                    ? Math.max(Number(f.years) || 0, Math.min(resumeData.experienceKeywords.length, 10))
+                                    : f.years,
+                                }));
+                                if (data?.user) {
+                                  login(data.user, localStorage.getItem('svr_token'));
+                                }
+                                setAiApplied(true);
+                                toast.success('AI Suggestions applied!');
+                              } catch (e) {
+                                console.error(e);
+                                toast.error(e?.message || 'Failed to apply AI suggestions');
+                              } finally {
+                                setApplyingAi(false);
+                              }
+                            }}
+                            disabled={applyingAi}
+                          >
+                            {applyingAi ? 'Applying...' : '✓ Accept AI Suggestions'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setResumeData(null);
+                            setAiApplied(false);
+                            setForm((f) => ({ ...f, skills: [], bio: '', years: 0 }));
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          className="px-5 py-2.5 text-sm text-gray-500 hover:text-indigo-600 font-medium underline decoration-dotted underline-offset-4"
+                        >
+                          Remove & upload different file
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

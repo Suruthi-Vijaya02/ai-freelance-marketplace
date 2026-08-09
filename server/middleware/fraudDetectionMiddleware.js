@@ -1,33 +1,49 @@
-const requestCounts = new Map();
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 100;
+import { evaluateAndRecordFraud } from '../services/fraudDetectionService.js';
 
-export function fraudDetectionMiddleware(req, res, next) {
-  const key = req.user?.id?.toString() || req.ip;
-  const now = Date.now();
-  const entry = requestCounts.get(key) || { count: 0, start: now };
+export async function fraudDetectionMiddleware(req, res, next) {
+  try {
+    // Check negative budget or price inputs
+    if (req.body?.price != null && Number(req.body.price) < 0) {
+      await evaluateAndRecordFraud(req, {
+        eventType: 'failed_payments',
+        reason: `Negative price input attempted (${req.body.price})`,
+        forcePersist: true,
+      });
+      return res.status(400).json({
+        message: 'Invalid transaction amount',
+        fraudAlert: true,
+      });
+    }
 
-  if (now - entry.start > WINDOW_MS) {
-    entry.count = 0;
-    entry.start = now;
+    if (req.body?.budget != null && Number(req.body.budget) < 0) {
+      await evaluateAndRecordFraud(req, {
+        eventType: 'suspicious_project',
+        reason: `Negative project budget attempted (${req.body.budget})`,
+        forcePersist: true,
+      });
+      return res.status(400).json({
+        message: 'Invalid project budget',
+        fraudAlert: true,
+      });
+    }
+
+    // Evaluate risk and log to MongoDB if high activity or anomaly detected
+    const fraudResult = await evaluateAndRecordFraud(req);
+
+    if (fraudResult.riskScore >= 90) {
+      return res.status(429).json({
+        message: 'Suspicious activity detected — request blocked',
+        fraudAlert: true,
+        riskScore: fraudResult.riskScore,
+        riskLevel: fraudResult.riskLevel,
+        reasons: fraudResult.reasons,
+      });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('[fraudDetectionMiddleware] Error in fraud middleware:', error);
+    return next();
   }
-
-  entry.count += 1;
-  requestCounts.set(key, entry);
-
-  if (entry.count > MAX_REQUESTS) {
-    return res.status(429).json({
-      message: 'Suspicious activity detected — rate limit exceeded',
-      fraudAlert: true,
-    });
-  }
-
-  if (req.body?.price && req.body.price < 0) {
-    return res.status(400).json({
-      message: 'Invalid transaction amount',
-      fraudAlert: true,
-    });
-  }
-
-  return next();
 }
+

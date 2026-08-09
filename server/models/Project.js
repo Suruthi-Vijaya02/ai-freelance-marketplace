@@ -20,6 +20,7 @@ const projectSchema = new mongoose.Schema(
     title: { type: String, required: true },
     description: { type: String, required: true },
     budget: { type: Number, required: true },
+    currency: { type: String, enum: ['USD', 'INR', 'EUR', 'GBP'], default: 'USD' },
     budgetType: { type: String, enum: ['fixed', 'hourly'], default: 'fixed' },
     skills: [String],
     category: String,

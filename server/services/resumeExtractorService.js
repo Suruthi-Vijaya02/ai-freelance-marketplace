@@ -1,23 +1,41 @@
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 /**
  * Extract raw text from a resume file.
- * Supports PDF (via pdf-parse) and plain text files.
- * Falls back gracefully if pdf-parse is not yet installed.
+ * Supports PDF (pdf-parse v2 PDFParse class) and plain text files.
  */
 export async function extractTextFromFile(filePath) {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.pdf') {
     try {
-      // Dynamic import so the server still boots even if pdf-parse is missing
-      const pdfParse = (await import('pdf-parse')).default;
+      const mod = require('pdf-parse');
+      const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
+
+      if (typeof PDFParse !== 'function') {
+        throw new Error('pdf-parse PDFParse class is unavailable');
+      }
+
       const buffer = fs.readFileSync(filePath);
-      const data = await pdfParse(buffer);
-      return (data.text || '').replace(/\s+/g, ' ').trim();
+      const parser = new PDFParse({ data: buffer });
+      try {
+        const result = await parser.getText();
+        const text = (result?.text || '')
+          .replace(/[\x00-\x1F\x7F-\x9F]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        return text;
+      } finally {
+        if (typeof parser.destroy === 'function') {
+          await parser.destroy().catch(() => {});
+        }
+      }
     } catch (err) {
-      console.warn('[resumeExtractor] pdf-parse failed, falling back to empty string:', err.message);
+      console.error('[resumeExtractor] ERROR:', err.message);
       return '';
     }
   }

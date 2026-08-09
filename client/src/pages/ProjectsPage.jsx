@@ -21,7 +21,7 @@ export default function ProjectsPage() {
   const { requireAuth, showLoginModal, closeLoginModal, isAuthenticated } = useProtectedAction();
   const { isClient, isFreelancer } = useRole();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get('tab') || (isFreelancer ? 'browse' : 'mine');
+  const tab = searchParams.get('tab') || (isFreelancer ? 'browse' : (isClient ? 'mine' : 'browse'));
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -31,7 +31,7 @@ export default function ProjectsPage() {
     try {
       setLoading(true);
       let data;
-      if (isClient) {
+      if (tab === 'mine' && isClient) {
         const res = await projectService.getMyProjects();
         data = res.data;
       } else if (tab === 'hired') {
@@ -43,7 +43,8 @@ export default function ProjectsPage() {
       } else {
         const params = {};
         if (search) params.search = search;
-        params.status = status || 'open';
+        if (status && status !== 'all') params.status = status;
+        else if (!status) params.status = 'open';
         const res = await projectService.getProjects(params);
         data = res.data;
       }
@@ -84,7 +85,7 @@ export default function ProjectsPage() {
     projectListContent = (
       <motion.div variants={stagger} initial="hidden" animate="visible" className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((p) => (
-          <motion.div key={p._id} variants={fadeInUp} whileHover={{ y: -2 }}>
+          <motion.div key={p._id} whileHover={{ y: -2 }}>
             <Card hover className="h-full flex flex-col">
               <div className="flex items-start justify-between mb-3">
                 <Badge color={statusMap[p.status] || 'muted'}>
@@ -156,47 +157,54 @@ export default function ProjectsPage() {
               <Link to="/projects?tab=applied"><Button variant="outline">View Applied</Button></Link>
             </div>
           </motion.div>
-          <motion.div variants={fadeInUp} className="flex justify-center">
+          <motion.div className="flex justify-center">
             <motion.img
               src={BrowseHero}
               alt="Browse projects"
               className="w-full max-w-[520px] rounded-[2rem] shadow-2xl border border-white/20"
-              variants={floatHero}
             />
           </motion.div>
         </motion.section>
 
         <div className="mb-8">
-          <h1 className="text-text">{isClient ? 'My Posted Projects' : 'Projects'}</h1>
+          <h1 className="text-text">
+            {tab === 'mine' ? 'My Posted Projects' : tab === 'applied' ? 'Applied Projects' : tab === 'hired' ? 'Hired Projects' : 'Browse Projects'}
+          </h1>
           <p className="text-muted mt-1 font-light">
-            {isClient
+            {tab === 'mine'
               ? 'Manage your posted projects and review proposals'
               : 'Browse open work, track applications, and hired projects'}
           </p>
         </div>
 
-        {isFreelancer && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {[
-              { id: 'browse', label: 'Browse Projects' },
-              { id: 'applied', label: 'Applied Projects' },
-              { id: 'hired', label: 'Hired Projects' },
-            ].map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSearchParams({ tab: id })}
-                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  tab === id
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted hover:text-text'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {(isFreelancer
+            ? [
+                { id: 'browse', label: 'Browse Projects' },
+                { id: 'applied', label: 'Applied Projects' },
+                { id: 'hired', label: 'Hired Projects' },
+              ]
+            : isClient
+            ? [
+                { id: 'mine', label: 'My Posted Projects' },
+                { id: 'browse', label: 'Browse All Projects' },
+              ]
+            : [{ id: 'browse', label: 'Browse Projects' }]
+          ).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setSearchParams({ tab: id })}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                tab === id
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted hover:text-text'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-8">
           <div className="flex-1 relative">
@@ -206,11 +214,11 @@ export default function ProjectsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search projects..."
-              disabled={isClient || tab !== 'browse'}
+              disabled={tab !== 'browse' && tab !== 'mine'}
               className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-lg text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:opacity-60"
             />
           </div>
-          {isFreelancer && tab === 'browse' && (
+          {(tab === 'browse' || tab === 'mine') && (
             <>
               <select
                 value={status}
@@ -221,6 +229,7 @@ export default function ProjectsPage() {
                 <option value="open">Open</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
+                <option value="all">All Statuses</option>
               </select>
               <Button variant="outline">
                 <Filter className="w-4 h-4" /> Filters

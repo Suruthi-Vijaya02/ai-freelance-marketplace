@@ -7,6 +7,7 @@ import {
   getMyProposals,
   updateProposal,
   updateProposalStatus,
+  withdrawProposal,
 } from '../controllers/proposalController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { roleMiddleware } from '../middleware/roleMiddleware.js';
@@ -23,5 +24,7 @@ router.post('/create', authMiddleware, roleMiddleware('freelancer'), fraudDetect
 router.post('/', authMiddleware, roleMiddleware('freelancer'), fraudDetectionMiddleware, submitProposal);
 router.patch('/:id', authMiddleware, roleMiddleware('freelancer'), validateObjectId(), updateProposal);
 router.patch('/:id/status', authMiddleware, roleMiddleware('client', 'admin'), validateObjectId(), updateProposalStatus);
+router.delete('/:id', authMiddleware, roleMiddleware('freelancer'), validateObjectId(), withdrawProposal);
+router.post('/:id/withdraw', authMiddleware, roleMiddleware('freelancer'), validateObjectId(), withdrawProposal);
 
 export default router;

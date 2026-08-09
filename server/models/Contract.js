@@ -32,6 +32,7 @@ const contractSchema = new mongoose.Schema(
     freelancer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     terms: { type: String, required: true },
     amount: { type: Number, required: true }, // total in cents
+    currency: { type: String, enum: ['USD', 'INR', 'EUR', 'GBP'], default: 'USD' },
     blockchainHash: String,
     clientSignature: { signed: Boolean, signedAt: Date },
     freelancerSignature: { signed: Boolean, signedAt: Date },

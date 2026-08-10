@@ -223,37 +223,33 @@ export default function LandingPage() {
         {/* Hero Content */}
         <div className="relative z-10 w-full px-6 md:px-10 lg:px-16 pb-20 md:pb-0 md:pt-32 max-w-7xl mx-auto">
           <div className="max-w-3xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="flex items-center gap-3 mb-8"
-            >
-              <div className="h-px w-8 bg-[#3d47d4]" />
-              <span className="text-[#ff4d1c] text-[11px] tracking-[0.25em] uppercase font-semibold">
-                Freelance Marketplace
-              </span>
-            </motion.div>
+   <motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.7, delay: 0.2 }}
+  className="flex items-center gap-2.5 mb-6"
+>
+  <span className="h-[2px] w-6 bg-[#3d47d4] rounded-full inline-block" />
+  <span className="text-[#ff4d1c] text-[11px] sm:text-[12px] tracking-[0.2em] uppercase font-bold leading-none">
+    Freelance Marketplace
+  </span>
+</motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.35 }}
-              className="font-display text-[3.2rem] sm:text-[4.5rem] md:text-[6rem] lg:text-[7rem] text-[#1a1560] leading-[0.9] tracking-tighter mb-8"
-            >
-              Hire talent.
-              <br />
-              <span className="text-[#6b64a8]">Not promises.</span>
-            </motion.h1>
-
+           <motion.h1
+  initial={{ opacity: 0, y: 30 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.8, delay: 0.35 }}
+  className="font-display text-[2.75rem] sm:text-[2.75rem] md:text-[5.5rem] lg:text-[6.5rem] text-[#1a1560] leading-[0.95] tracking-tighter mb-8 max-w-5xl"
+>
+  Where great talent <span className="text-[#6b64a8]">meets great opportunities.</span>
+</motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.5 }}
               className="text-[#6b64a8] text-base md:text-lg max-w-md leading-relaxed mb-10 font-body"
             >
-              Connect with verified freelancers worldwide. Smart matching, secure escrow, and real-time collaboration.
-            </motion.p>
+Connecting ambitious clients with verified freelancers worldwide. Smart matching, secure escrow, and seamless collaboration.            </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}

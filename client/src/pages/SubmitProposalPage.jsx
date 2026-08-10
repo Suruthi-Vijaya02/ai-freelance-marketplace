@@ -162,55 +162,49 @@ export default function SubmitProposalPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
+    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
       <Link to={`/projects/${projectId}`} className="inline-flex items-center gap-2 text-sm text-muted hover:text-primary">
         <ArrowLeft className="w-4 h-4" /> Back to project
       </Link>
-      <div>
-        <h1 className="text-2xl font-black text-text">Submit Proposal</h1>
-        <p className="text-muted text-sm mt-1">{project.title}</p>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-text">Submit Proposal</h1>
+        <p className="text-sm text-muted">{project.title}</p>
       </div>
-      <Card>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="text-sm font-medium text-text">Bid rate ($)</label>
-            <input
-              type="number"
-              required
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              className="w-full mt-1.5 px-4 py-2.5 bg-surface border border-border rounded-lg text-text"
-            />
+      <Card className="p-6 md:p-8">
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm font-medium text-text">Bid rate ($)</label>
+              <input
+                type="number"
+                required
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                className="w-full mt-2 px-4 py-3 bg-surface/80 border border-border/80 rounded-xl text-text placeholder:text-muted shadow-sm focus:outline-none focus:ring-2 focus:ring-btn-blue/20 focus:border-btn-blue transition-colors"
+                placeholder="e.g. 500"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-text">Timeline</label>
+              <input
+                type="text"
+                required
+                value={form.timeline}
+                onChange={(e) => setForm({ ...form, timeline: e.target.value })}
+                className="w-full mt-2 px-4 py-3 bg-surface/80 border border-border/80 rounded-xl text-text placeholder:text-muted shadow-sm focus:outline-none focus:ring-2 focus:ring-btn-blue/20 focus:border-btn-blue transition-colors"
+                placeholder="e.g. 6 weeks"
+              />
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium text-text">Estimated hours</label>
-            <input
-              type="number"
-              value={form.estimatedHours}
-              onChange={(e) => setForm({ ...form, estimatedHours: e.target.value })}
-              className="w-full mt-1.5 px-4 py-2.5 bg-surface border border-border rounded-lg text-text"
-              placeholder="e.g. 120"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-text">Timeline</label>
-            <input
-              type="text"
-              required
-              value={form.timeline}
-              onChange={(e) => setForm({ ...form, timeline: e.target.value })}
-              className="w-full mt-1.5 px-4 py-2.5 bg-surface border border-border rounded-lg text-text"
-              placeholder="e.g. 6 weeks"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-text">Cover letter</label>
+
+          <div className="rounded-2xl border border-border/80 bg-surface/70 p-4 md:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <label className="text-sm font-semibold text-text">Cover letter</label>
               <button
                 type="button"
                 onClick={handleAiSuggest}
                 disabled={aiSuggesting}
-                className="text-indigo-700 text-sm font-semibold hover:underline flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white/70 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {aiSuggesting ? (
                   <>
@@ -226,25 +220,28 @@ export default function SubmitProposalPage() {
               </button>
             </div>
             <textarea
-              rows={5}
+              rows={10}
               required
               value={form.coverLetter}
               onChange={(e) => setForm({ ...form, coverLetter: e.target.value })}
-              className="w-full mt-1.5 px-4 py-2.5 bg-surface border border-border rounded-lg text-text"
+              className="w-full min-h-[220px] resize-y px-4 py-3 bg-white/80 border border-border/80 rounded-xl text-text placeholder:text-muted shadow-sm focus:outline-none focus:ring-2 focus:ring-btn-blue/20 focus:border-btn-blue transition-colors"
               placeholder="Write your cover letter or click AI Suggest to generate a draft..."
             />
           </div>
-          <div>
-            <label className="text-sm font-medium text-text">Attachments (URLs, one per line)</label>
+
+          <div className="rounded-2xl border border-border/80 bg-surface/70 p-4 md:p-5">
+            <label className="text-sm font-semibold text-text">Portfolio & attachments</label>
+            <p className="text-sm text-muted mt-1">Share links, examples, or supporting materials that strengthen your proposal.</p>
             <textarea
-              rows={2}
+              rows={3}
               value={form.attachmentUrls}
               onChange={(e) => setForm({ ...form, attachmentUrls: e.target.value })}
-              className="w-full mt-1.5 px-4 py-2.5 bg-surface border border-border rounded-lg text-text text-sm"
-              placeholder="https://..."
+              className="w-full mt-3 px-4 py-3 bg-white/80 border border-border/80 rounded-xl text-text text-sm placeholder:text-muted shadow-sm focus:outline-none focus:ring-2 focus:ring-btn-blue/20 focus:border-btn-blue transition-colors"
+              placeholder="https://example.com"
             />
           </div>
-          <Button type="submit" className="w-full" disabled={submitting}>
+
+          <Button type="submit" className="w-full rounded-full px-6 py-3.5 text-base shadow-sm" disabled={submitting}>
             {submitting ? 'Submitting...' : 'Submit Proposal'}
           </Button>
         </form>

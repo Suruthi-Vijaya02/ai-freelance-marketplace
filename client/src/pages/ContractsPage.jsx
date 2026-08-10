@@ -7,7 +7,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  AlertCircle,
   MessageSquare,
   Copy,
   ExternalLink,
@@ -492,7 +491,7 @@ export default function ContractsPage() {
                         </Badge>
                       </div>
 
-                      <div className="space-y-3 my-4">
+                      <div className="space-y-4 my-4">
                         <div className="flex items-center gap-2">
                           <img
                             src={partner?.avatar || (partner?.name ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner.name}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=user`)}
@@ -505,17 +504,13 @@ export default function ContractsPage() {
                           </span>
                         </div>
 
-                        {contract?.blockchain?.verified ? (
+                        {contract?.blockchain?.verified && (
                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold">
                             <Shield className="w-3.5 h-3.5" /> On-chain verified
                           </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
-                            <AlertCircle className="w-3.5 h-3.5" /> Unverified Contract
-                          </div>
                         )}
 
-                        <div className="space-y-1 mt-2">
+                        <div className="space-y-1">
                           <div className="flex justify-between text-xs text-muted">
                             <span>Progress</span>
                             <span>{progress}%</span>

@@ -461,7 +461,7 @@ export default function ContractsPage() {
               <p className="text-muted mt-2">Create a project or accept a proposal to start a contract.</p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <Link to="/projects"><Button variant="outline">Browse Projects</Button></Link>
-                <button onClick={() => setActiveTab('escrow')}><Button>View Payments</Button></button>
+                <Button onClick={() => setActiveTab('escrow')}>View Payments</Button>
               </div>
             </div>
           ) : (

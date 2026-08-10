@@ -50,19 +50,29 @@ export async function getStats(req, res) {
 export async function getFraudAlerts(req, res) {
   try {
     const fraudEvents = await FraudEvent.find()
-      .populate('userId', 'name email')
+      .populate('user', 'name email status isFlagged')
       .sort({ createdAt: -1 });
 
-    const alerts = fraudEvents.map((event) => ({
-      id: event._id,
-      user: event.userId?.name || event.metadata?.ipAddress || 'System User',
-      type: event.ruleTriggered || 'Suspicious request activity',
-      severity: event.riskLevel === 'high' ? 'critical' : event.riskLevel === 'medium' ? 'high' : 'medium',
-      timestamp: event.createdAt,
-      status: event.status || 'open',
-      actionTaken: event.actionTaken || 'Flagged for review',
-      confidence: event.confidenceScore || 0.95,
-    }));
+    const alerts = fraudEvents.map((event) => {
+      const normalizedRisk = (event.riskLevel || 'MEDIUM').toUpperCase();
+      const severityMap = {
+        CRITICAL: 'critical',
+        HIGH: 'high',
+        MEDIUM: 'medium',
+        LOW: 'low',
+      };
+
+      return {
+        id: event._id,
+        user: event.user?.name || event.userName || event.ipAddress || 'System User',
+        type: event.eventType?.replace('_', ' ') || 'Suspicious request activity',
+        severity: severityMap[normalizedRisk] || 'medium',
+        timestamp: event.createdAt,
+        status: event.status || 'open',
+        actionTaken: event.reasons?.[0] || 'Flagged for review',
+        confidence: event.mlConfidence ?? event.confidenceScore ?? 0.95,
+      };
+    });
 
     return res.json(alerts);
   } catch (err) {

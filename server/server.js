@@ -6,10 +6,15 @@ import { fileURLToPath } from 'url';
 // This makes dotenv loading robust when the process is started from the repository root.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+const serverEnvPath = path.resolve(__dirname, '.env');
+const rootEnvPath = path.resolve(__dirname, '..', '.env');
 
-// Temporary diagnostic (non-secret): confirm presence and length only
+dotenv.config({ path: serverEnvPath });
+dotenv.config({ path: rootEnvPath });
+
+// Safe diagnostics only: confirm presence without printing actual values.
 console.log('[env] GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY, 'length:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0);
+console.log('[blockchain] config loaded:', !!process.env.SEPOLIA_RPC_URL, !!process.env.BLOCKCHAIN_PRIVATE_KEY, !!process.env.BLOCKCHAIN_CONTRACT_ADDRESS);
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'node:http';

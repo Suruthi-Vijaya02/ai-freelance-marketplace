@@ -2,7 +2,10 @@ import Contract from '../models/Contract.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Project from '../models/Project.js';
-import { generateBlockchainHash } from '../services/blockchainService.js';
+import {
+  createBlockchainContract,
+  releaseMilestoneOnChain,
+} from '../services/blockchainService.js';
 import Message from '../models/Message.js';
 import { buildConversationId } from './messageController.js';
 
@@ -58,22 +61,77 @@ export async function createContract(req, res) {
       return res.status(400).json({ message: 'Contract already exists for this project' });
     }
 
-    const blockchainHash = generateBlockchainHash({ project, freelancer, terms, amount });
-
     const contract = await Contract.create({
       project,
       client: req.user._id,
       freelancer,
       terms,
       amount,
-      blockchainHash,
+      blockchainHash: null,
       status: 'pending_signature',
       dispatchStatus: 'pending',
       totalReleased: 0,
       totalInEscrow: 0,
+      blockchain: {
+        verified: false,
+        network: 'sepolia',
+        txHash: null,
+        contractAddress: process.env.BLOCKCHAIN_CONTRACT_ADDRESS || null,
+        verifiedAt: null,
+        status: 'PENDING',
+      },
       ...(contractTemplateId && { contractTemplateId }),
       ...(escrowId && { escrowId }),
     });
+
+    try {
+      const blockchainResult = await createBlockchainContract({
+        projectId: String(project),
+        totalAmount: Number(amount || 0),
+        milestoneTitles: ['Project Delivery'],
+        milestoneAmounts: [Number(amount || 0)],
+      });
+
+      if (blockchainResult?.txHash) {
+        contract.blockchainHash = blockchainResult.txHash;
+        contract.blockchain = {
+          ...contract.blockchain,
+          contractId: blockchainResult.contractId ?? contract.blockchain?.contractId ?? null,
+          verified: !!blockchainResult.verified,
+          network: blockchainResult.network || 'sepolia',
+          txHash: blockchainResult.txHash,
+          contractAddress: blockchainResult.contractAddress || process.env.BLOCKCHAIN_CONTRACT_ADDRESS || null,
+          verifiedAt: blockchainResult.verified ? new Date() : null,
+          status: blockchainResult.verified ? 'CONFIRMED' : (blockchainResult.status || 'PENDING'),
+        };
+
+        if (blockchainResult.verified) {
+          const io = req.app.get('io');
+          if (io) {
+            io.to(`user:${contract.client}`).emit('blockchain:confirmed', {
+              contractId: contract._id.toString(),
+              txHash: blockchainResult.txHash,
+              status: 'CONFIRMED',
+              network: blockchainResult.network || 'sepolia',
+            });
+          }
+        }
+      } else {
+        contract.blockchain = {
+          ...contract.blockchain,
+          status: blockchainResult?.status || 'PENDING',
+        };
+      }
+      await contract.save();
+    } catch (blockchainError) {
+      console.warn('[blockchain] Contract registration skipped safely:', blockchainError.message);
+      contract.blockchain = {
+        ...contract.blockchain,
+        verified: false,
+        status: 'PENDING',
+      };
+      await contract.save();
+    }
 
     // Auto-create conversation between client and freelancer when contract created
     try {
@@ -383,38 +441,121 @@ export async function releaseMilestone(req, res) {
     const milestone = contract.milestones.id(milestoneId);
     if (!milestone) return res.status(404).json({ success: false, message: 'Milestone not found' });
 
+    const rawMilestoneAmount = milestone.amount;
+    const milestoneAmount = Number(rawMilestoneAmount);
+    if (!Number.isFinite(milestoneAmount) || milestoneAmount <= 0) {
+      throw new Error(`Invalid milestone amount for release: ${rawMilestoneAmount}`);
+    }
+
+    console.log('[blockchain] Milestone ID:', milestoneId);
+    console.log('[blockchain] Amount from database:', rawMilestoneAmount);
+    console.log('[blockchain] Parsed numeric amount:', milestoneAmount);
+    console.log('[blockchain] Contract address:', contract.blockchain?.contractAddress || process.env.BLOCKCHAIN_CONTRACT_ADDRESS || 'not-configured');
+    console.log('[blockchain] Network: Sepolia');
+
     if (milestone.status === 'released') {
-      return res.status(400).json({ success: false, message: 'Milestone already released' });
+      return res.status(200).json({
+        success: true,
+        message: 'Milestone already released',
+        data: { milestone, contract },
+      });
     }
     if (milestone.status !== 'approved') {
       return res.status(400).json({ success: false, message: 'Milestone must be approved before release' });
     }
 
-    // Stripe capture simulation if secret key and escrow transaction exists
     const stripeSecret = process.env.STRIPE_SECRET_KEY;
-    if (stripeSecret && milestone.escrowTxId) {
+    const escrowTxId = typeof milestone.escrowTxId === 'string' ? milestone.escrowTxId.trim() : '';
+    const shouldCaptureStripe = !!(stripeSecret && escrowTxId && escrowTxId.startsWith('pi_'));
+
+    if (shouldCaptureStripe) {
       try {
         const Stripe = (await import('stripe')).default;
         const stripeClient = new Stripe(stripeSecret);
-        await stripeClient.paymentIntents.capture(milestone.escrowTxId);
+        await stripeClient.paymentIntents.capture(escrowTxId);
       } catch (e) {
-        console.warn('Stripe capture warning:', e.message);
+        console.warn('[stripe] capture skipped or failed for valid PaymentIntent:', e.message);
       }
+    } else if (stripeSecret && escrowTxId && !escrowTxId.startsWith('pi_')) {
+      console.warn('[stripe] Skipping capture because escrowTxId is not a Stripe PaymentIntent ID:', escrowTxId);
+    }
+
+    const blockchainContractAddress = contract.blockchain?.contractAddress || process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
+    const blockchainConfigured = !!(process.env.SEPOLIA_RPC_URL && process.env.BLOCKCHAIN_PRIVATE_KEY && blockchainContractAddress);
+    const milestoneIndex = contract.milestones.findIndex((item) => item._id.toString() === milestoneId);
+    const blockchainContractId = Number(contract.blockchain?.contractId);
+
+    if (!Number.isFinite(blockchainContractId) || blockchainContractId <= 0) {
+      throw new Error('Missing blockchain contract id. The on-chain contract registration did not store a valid contract identifier.');
+    }
+
+    let blockchainReleaseResult = null;
+
+    if (!blockchainConfigured) {
+      return res.status(503).json({
+        success: false,
+        message: 'Sepolia blockchain is not configured for milestone release right now.',
+      });
+    }
+
+    try {
+      blockchainReleaseResult = await releaseMilestoneOnChain({
+        contractId: blockchainContractId,
+        milestoneIndex,
+        contractAddressOverride: blockchainContractAddress,
+        amount: milestoneAmount,
+      });
+
+      if (!blockchainReleaseResult?.verified || !blockchainReleaseResult?.txHash) {
+        return res.status(400).json({
+          success: false,
+          message: blockchainReleaseResult?.message || 'Blockchain confirmation failed before milestone release could be recorded.',
+        });
+      }
+    } catch (blockchainError) {
+      console.warn('[blockchain] Milestone release failed safely:', blockchainError.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Blockchain submission failed. Please try again once Sepolia is available.',
+      });
     }
 
     // Calculate commission
     const tier = contract.freelancer.subscription?.tier || DEFAULT_TIER;
     const commissionRate = COMMISSION_RATES[tier] ?? COMMISSION_RATES[DEFAULT_TIER];
-    const commissionAmount = Math.round(milestone.amount * commissionRate);
-    const freelancerPayout = milestone.amount - commissionAmount;
+    const commissionAmount = Math.round(milestoneAmount * commissionRate);
+    const freelancerPayout = milestoneAmount - commissionAmount;
 
     // Update status
     milestone.status = 'released';
     milestone.releasedAt = new Date();
+    milestone.releaseTxId = blockchainReleaseResult?.txHash || milestone.releaseTxId || null;
     milestone.freelancerPayoutStatus = 'completed';
 
-    contract.totalReleased = (contract.totalReleased || 0) + milestone.amount;
-    contract.totalInEscrow = Math.max(0, (contract.totalInEscrow || 0) - milestone.amount);
+    contract.totalReleased = (contract.totalReleased || 0) + milestoneAmount;
+    contract.totalInEscrow = Math.max(0, (contract.totalInEscrow || 0) - milestoneAmount);
+
+    if (blockchainReleaseResult?.txHash) {
+      contract.blockchain = {
+        ...contract.blockchain,
+        verified: true,
+        network: blockchainReleaseResult.network || 'sepolia',
+        txHash: blockchainReleaseResult.txHash,
+        contractAddress: blockchainReleaseResult.contractAddress || blockchainContractAddress || null,
+        verifiedAt: new Date(),
+        status: 'CONFIRMED',
+      };
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`user:${contract.client._id || contract.client}`).emit('blockchain:confirmed', {
+          contractId: contract._id.toString(),
+          milestoneId: milestone._id.toString(),
+          txHash: blockchainReleaseResult.txHash,
+          status: 'CONFIRMED',
+          network: blockchainReleaseResult.network || 'sepolia',
+        });
+      }
+    }
 
     const freelancer = await User.findById(contract.freelancer._id || contract.freelancer);
     if (freelancer) {

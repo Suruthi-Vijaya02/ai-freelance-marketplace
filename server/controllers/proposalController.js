@@ -221,25 +221,30 @@ export async function updateProposalStatus(req, res) {
       );
 
       const Contract = (await import('../models/Contract.js')).default;
-      const { generateBlockchainHash } = await import('../services/blockchainService.js');
-      
       const amountInCents = Math.round((proposal.price || 0) * 100);
       const terms = `Contract for project: ${project.title}. Timeline: ${proposal.timeline}`;
-      const blockchainHash = generateBlockchainHash({ project: project._id, freelancer: proposal.freelancer, terms, amount: amountInCents });
       
-      await Contract.create({
+      const contractRecord = await Contract.create({
         project: project._id,
         client: project.client,
         freelancer: proposal.freelancer,
         terms,
         amount: amountInCents,
-        blockchainHash,
+        blockchainHash: null,
         status: 'pending_signature',
         clientSignature: { signed: false },
         freelancerSignature: { signed: false },
         signatures: {
           client: { signed: false },
           freelancer: { signed: false },
+        },
+        blockchain: {
+          verified: false,
+          network: 'sepolia',
+          txHash: null,
+          contractAddress: null,
+          verifiedAt: null,
+          status: 'PENDING',
         },
         milestones: (project.milestones?.length
           ? project.milestones.map((m) => ({
@@ -256,6 +261,32 @@ export async function updateProposalStatus(req, res) {
               status: 'pending',
             }]),
       });
+
+      try {
+        const { createBlockchainContract } = await import('../services/blockchainService.js');
+        const blockchainResult = await createBlockchainContract({
+          projectId: String(project._id),
+          totalAmount: amountInCents,
+          milestoneTitles: (project.milestones?.length ? project.milestones.map((m) => m.title || 'Milestone') : ['Project Delivery']),
+          milestoneAmounts: (project.milestones?.length ? project.milestones.map((m) => Number(m.amount || 0) * 100) : [amountInCents]),
+        });
+
+        if (blockchainResult?.txHash) {
+          contractRecord.blockchainHash = blockchainResult.txHash;
+          contractRecord.blockchain = {
+            contractId: blockchainResult.contractId ?? contractRecord.blockchain?.contractId ?? null,
+            verified: !!blockchainResult.verified,
+            network: blockchainResult.network || 'sepolia',
+            txHash: blockchainResult.txHash,
+            contractAddress: blockchainResult.contractAddress || null,
+            verifiedAt: blockchainResult.verified ? new Date() : null,
+            status: blockchainResult.verified ? 'CONFIRMED' : (blockchainResult.status || 'PENDING'),
+          };
+          await contractRecord.save();
+        }
+      } catch (blockchainError) {
+        console.warn('[blockchain] Auto-created contract registration skipped safely:', blockchainError.message);
+      }
     }
 
     const populated = await Proposal.findById(proposal._id)

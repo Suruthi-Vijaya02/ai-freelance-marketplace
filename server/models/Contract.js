@@ -57,10 +57,13 @@ const contractSchema = new mongoose.Schema(
     totalInEscrow: { type: Number, default: 0 }, // cents
     messageThreadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
     blockchain: {
+      contractId: Number,
       verified: { type: Boolean, default: false },
       network: { type: String, default: 'sepolia' },
       txHash: String,
-      verifiedAt: Date
+      contractAddress: String,
+      verifiedAt: Date,
+      status: { type: String, enum: ['PENDING', 'CONFIRMED', 'FAILED', 'NOT_FOUND'], default: 'PENDING' }
     }
   },
   { timestamps: true }
